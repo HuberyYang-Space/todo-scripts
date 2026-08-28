@@ -2,7 +2,7 @@
   "name": "@huberyyang/todo-scripts",
   "type": "module",
   "version": "1.1.1",
-  "packageManager": "pnpm@11.0.7",
+  "packageManager": "pnpm@11.23.0",
   "description": "Some public executable scripts",
   "author": "HuberyYang",
   "license": "MIT",
@@ -19,7 +19,8 @@
     "node",
     "bash",
     "bin",
-    "sh"
+    "sh",
+    "commitlint"
   ],
   "bin": {
     "hubery": "bin/index.js"
