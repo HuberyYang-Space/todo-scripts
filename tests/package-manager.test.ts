@@ -1,11 +1,14 @@
 import fs from 'node:fs'
 import process from 'node:process'
-import { execaCommand } from 'execa'
+import { execa } from 'execa'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ScriptError } from '@/utils'
 import { createPackageManager, getPkgManager } from '@/utils/package-manager'
 
-vi.mock('execa', () => ({ execaCommand: vi.fn(async () => {}) }))
+vi.mock('execa', async importOriginal => ({
+  ...await importOriginal<typeof import('execa')>(),
+  execa: vi.fn(async () => {}),
+}))
 vi.mock('yocto-spinner', () => ({
   default: () => ({ start: vi.fn(function (this: any) { return this }), success: vi.fn(), stop: vi.fn() }),
 }))
@@ -29,7 +32,7 @@ afterEach(() => {
   else
     process.env.npm_config_user_agent = originalUserAgent
 
-  vi.mocked(execaCommand).mockReset()
+  vi.mocked(execa).mockReset()
   vi.restoreAllMocks()
 })
 
@@ -77,35 +80,36 @@ describe('ensureInstalled', () => {
   ])('%s 应该生成 "%s"', async (userAgent, expected) => {
     const pm = usePkgManager(userAgent)
     await pm.ensureInstalled(['husky'], { dev: true })
-    expect(execaCommand).toHaveBeenCalledWith(expected)
+    const [file, ...commandArguments] = expected.split(' ')
+    expect(execa).toHaveBeenCalledWith(file, commandArguments)
   })
 
   it('yarn 不能用 install 子命令 —— yarn v1 会直接报错退出', async () => {
     const pm = usePkgManager('yarn/1.22.19 npm/? node/v20.10.0')
     await pm.ensureInstalled(['husky'], { dev: true })
-    const command = vi.mocked(execaCommand).mock.calls[0][0] as string
-    expect(command).not.toContain('yarn install')
-    expect(command).not.toContain('--save-dev')
+    const commandArguments = vi.mocked(execa).mock.calls[0][1] as string[]
+    expect(commandArguments).not.toContain('install')
+    expect(commandArguments).not.toContain('--save-dev')
   })
 
   it('认不出的包管理器应该回退到 npm', async () => {
     const pm = usePkgManager(undefined)
     expect(pm.name).toBe('npm')
     await pm.ensureInstalled(['husky'], { dev: true })
-    expect(execaCommand).toHaveBeenCalledWith('npm install husky --save-dev')
+    expect(execa).toHaveBeenCalledWith('npm', ['install', 'husky', '--save-dev'])
   })
 
   it('不传 dev 时不应该带开发依赖标志', async () => {
     const pm = usePkgManager('npm/10.2.0 node/v20.10.0')
     await pm.ensureInstalled(['husky'])
-    expect(execaCommand).toHaveBeenCalledWith('npm install husky')
+    expect(execa).toHaveBeenCalledWith('npm', ['install', 'husky'])
   })
 
   it('多个包应该合并成一条命令', async () => {
     const pm = usePkgManager('npm/10.2.0 node/v20.10.0')
     await pm.ensureInstalled(['husky', 'lint-staged'], { dev: true })
-    expect(execaCommand).toHaveBeenCalledTimes(1)
-    expect(execaCommand).toHaveBeenCalledWith('npm install husky lint-staged --save-dev')
+    expect(execa).toHaveBeenCalledTimes(1)
+    expect(execa).toHaveBeenCalledWith('npm', ['install', 'husky', 'lint-staged', '--save-dev'])
   })
 
   it('全部已安装时不应该执行任何命令', async () => {
@@ -118,7 +122,7 @@ describe('ensureInstalled', () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(true)
     vi.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify({ devDependencies: { husky: '^9.1.7' } }))
     await pm.ensureInstalled(['husky'], { dev: true })
-    expect(execaCommand).not.toHaveBeenCalled()
+    expect(execa).not.toHaveBeenCalled()
   })
 
   it('pnpm monorepo 应该带上 -w', async () => {
@@ -133,7 +137,7 @@ describe('ensureInstalled', () => {
     // node_modules 判定为不存在，让它真的去装
     vi.spyOn(fs, 'existsSync').mockImplementation(p => !String(p).includes('node_modules/'))
     await pm.ensureInstalled(['husky'], { dev: true })
-    expect(execaCommand).toHaveBeenCalledWith('pnpm add -w husky --save-dev')
+    expect(execa).toHaveBeenCalledWith('pnpm', ['add', '-w', 'husky', '--save-dev'])
   })
 
   it('yarn monorepo 应该带上 -W', async () => {
@@ -143,7 +147,7 @@ describe('ensureInstalled', () => {
     const pm = createPackageManager()
     vi.spyOn(fs, 'existsSync').mockImplementation(p => !String(p).includes('node_modules/'))
     await pm.ensureInstalled(['husky'], { dev: true })
-    expect(execaCommand).toHaveBeenCalledWith('yarn add -W husky --dev')
+    expect(execa).toHaveBeenCalledWith('yarn', ['add', '-W', 'husky', '--dev'])
   })
 })
 
@@ -158,12 +162,13 @@ describe('uninstall', () => {
   ])('%s 应该生成 "%s"', async (userAgent, expected) => {
     const pm = usePkgManager(userAgent)
     await pm.uninstall('some-pkg')
-    expect(execaCommand).toHaveBeenCalledWith(expected)
+    const [file, ...commandArguments] = expected.split(' ')
+    expect(execa).toHaveBeenCalledWith(file, commandArguments)
   })
 
   it('卸载失败时应该抛出 ScriptError', async () => {
     const pm = usePkgManager('npm/10.2.0 node/v20.10.0')
-    vi.mocked(execaCommand).mockRejectedValue(new Error('boom'))
+    vi.mocked(execa).mockRejectedValue(new Error('boom'))
     await expect(pm.uninstall('some-pkg')).rejects.toThrow(ScriptError)
     await expect(pm.uninstall('some-pkg')).rejects.toThrow('Failed to uninstall some-pkg.')
   })
@@ -181,18 +186,19 @@ describe('exec / formatExec', () => {
     const pm = usePkgManager(userAgent)
     expect(pm.formatExec('husky init')).toBe(expected)
     await pm.exec('husky init')
-    expect(execaCommand).toHaveBeenCalledWith(expected)
+    const [file, ...commandArguments] = expected.split(' ')
+    expect(execa).toHaveBeenCalledWith(file, commandArguments)
   })
 
   it('allowFailure 为真时，命令失败不应该抛错', async () => {
     const pm = usePkgManager('npm/10.2.0 node/v20.10.0')
-    vi.mocked(execaCommand).mockRejectedValue(new Error('lint failed'))
+    vi.mocked(execa).mockRejectedValue(new Error('lint failed'))
     await expect(pm.exec('eslint . --fix', { allowFailure: true })).resolves.toBeUndefined()
   })
 
   it('默认情况下命令失败仍然应该抛出 ScriptError', async () => {
     const pm = usePkgManager('npm/10.2.0 node/v20.10.0')
-    vi.mocked(execaCommand).mockRejectedValue(new Error('boom'))
+    vi.mocked(execa).mockRejectedValue(new Error('boom'))
     await expect(pm.exec('husky init')).rejects.toThrow(ScriptError)
   })
 

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
-import { execaCommand } from 'execa'
+import { execa } from 'execa'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   execCommand,
@@ -18,7 +18,10 @@ import {
 } from '@/utils'
 
 // 失败路径用：execa 与写文件都要能按需失败，spinner 不能在测试输出里转
-vi.mock('execa', () => ({ execaCommand: vi.fn(async () => {}) }))
+vi.mock('execa', async importOriginal => ({
+  ...await importOriginal<typeof import('execa')>(),
+  execa: vi.fn(async () => {}),
+}))
 vi.mock('node:fs/promises', () => ({ writeFile: vi.fn(async () => {}) }))
 vi.mock('yocto-spinner', () => ({
   default: () => ({ start: vi.fn(function (this: any) { return this }), success: vi.fn(), stop: vi.fn() }),
@@ -282,14 +285,14 @@ describe('hasDependency', () => {
 // ========================================
 describe('失败路径', () => {
   afterEach(() => {
-    vi.mocked(execaCommand).mockReset()
+    vi.mocked(execa).mockReset()
     vi.mocked(writeFile).mockReset()
     vi.restoreAllMocks()
   })
 
   it('execCommand 命令失败时应该抛出 ScriptError，并挂上原始错误', async () => {
     const raw = new Error('exit code 1')
-    vi.mocked(execaCommand).mockRejectedValue(raw)
+    vi.mocked(execa).mockRejectedValue(raw)
     await expect(execCommand('git init')).rejects.toThrow(ScriptError)
     // 原始错误通过 cause 保留下来，排查时不会丢现场
     await expect(execCommand('git init')).rejects.toMatchObject({
@@ -305,7 +308,7 @@ describe('失败路径', () => {
 
   it('这些失败都不应该调用 process.exit', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
-    vi.mocked(execaCommand).mockRejectedValue(new Error('boom'))
+    vi.mocked(execa).mockRejectedValue(new Error('boom'))
     await expect(execCommand('whatever')).rejects.toThrow()
     expect(exitSpy).not.toHaveBeenCalled()
   })

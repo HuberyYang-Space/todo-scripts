@@ -4,7 +4,7 @@ import { writeFile as w } from 'node:fs/promises'
 import path, { resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { execaCommand } from 'execa'
+import { execa, parseCommandString } from 'execa'
 import figlet from 'figlet'
 import bannerFont from 'figlet/importable-fonts/ANSI Shadow.js'
 import gradient from 'gradient-string'
@@ -151,8 +151,9 @@ function getPkgInfo() {
  * @param {string} command - command to be executed
  */
 export async function execCommand(command: string) {
+  const [file, ...commandArguments] = parseCommandString(command)
   try {
-    await execaCommand(command)
+    await execa(file, commandArguments)
   }
   catch (e) {
     throw new ScriptError(`Failed to execute '${command}'.`, { cause: e })
