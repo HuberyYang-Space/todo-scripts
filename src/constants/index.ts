@@ -1,4 +1,4 @@
-/** 两份 commitlint 配置模板共用的标准 Conventional Commits 类型列表 */
+/** Standard Conventional Commits type list shared by both commitlint config templates */
 const COMMIT_TYPES = [
   'feat',
   'fix',
@@ -13,7 +13,7 @@ const COMMIT_TYPES = [
   'chore',
 ]
 
-/** 渲染成 type-enum 规则里的数组项文本，两份配置模板共用同一份类型列表 */
+/** Renders the array-item text for the type-enum rule; both config templates share this same type list */
 function renderTypeEnum(): string {
   return COMMIT_TYPES.map(type => `      '${type}',`).join('\n')
 }
@@ -82,7 +82,7 @@ ${renderTypeEnum()}
     breaklineChar: '|',
     skipQuestions: [],
     issuePrefixes: [
-      // 默认使用 GitHub 风格；如果使用 Gitee 作为开发管理，可自行替换为 link/closed 前缀
+      // Defaults to GitHub style; replace with the link/closed prefix if using Gitee instead
       { value: 'closes', name: 'closes:   关闭/解决一个 issue' },
     ],
     customIssuePrefixAlign: 'top',

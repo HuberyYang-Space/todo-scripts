@@ -8,8 +8,10 @@ export default defineConfig({
     },
   },
   test: {
-    // 隔离 worktree 里也有一份测试文件，不排除的话根仓库跑测试会把它们也扫进来，
-    // mock 在那个上下文里可能不生效，曾经因此对真实文件系统发起过 yarn/pnpm add
+    // An isolated worktree also has its own copy of the test files; without this
+    // exclusion, running tests from the root repo would sweep those in too, where
+    // mocks may not take effect — this has previously caused real yarn/pnpm add
+    // calls against the actual filesystem
     exclude: [...configDefaults.exclude, '**/.worktrees/**'],
   },
 })

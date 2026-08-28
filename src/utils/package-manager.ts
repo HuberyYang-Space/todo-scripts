@@ -8,50 +8,54 @@ export interface PkgInfo {
 }
 
 export interface PackageManager {
-  /** 包管理器名称，如 pnpm */
+  /** Package manager name, e.g. pnpm */
   readonly name: string
-  /** 装上还没装的那些包，全都装过了就什么也不做 */
+  /** Installs whichever of these packages aren't already installed; a no-op if all are */
   ensureInstalled: (pkgs: string[], options?: { dev?: boolean }) => Promise<void>
-  /** 卸载一个包 */
+  /** Uninstalls a package */
   uninstall: (pkg: string) => Promise<void>
   /**
-   * 执行项目本地的 bin，如 exec('husky init')
+   * Runs a project-local bin, e.g. exec('husky init')
    *
-   * allowFailure 表示调用方不关心这条命令的成败（例如收尾的代码格式化），
-   * 失败时不抛错、不中断后续流程
+   * allowFailure means the caller doesn't care whether this command succeeds
+   * (e.g. trailing code formatting) — on failure it neither throws nor
+   * interrupts the rest of the flow
    */
   exec: (command: string, options?: { allowFailure?: boolean }) => Promise<void>
-  /** 把一条本地 bin 命令渲染成字符串，供写入 husky hook 这类 shell 脚本 */
+  /** Renders a local-bin command as a string, for writing into shell scripts like husky hooks */
   formatExec: (command: string) => string
 }
 
 interface PkgManagerSpec {
-  /** 安装子命令 */
+  /** Install subcommand */
   add: string
-  /** 装为开发依赖的标志 */
+  /** Flag for installing as a dev dependency */
   devFlag: string
-  /** 卸载子命令 */
+  /** Uninstall subcommand */
   remove: string
-  /** monorepo 根目录安装/卸载的标志，不支持的包管理器留空 */
+  /** Flag for installing/removing at the monorepo root; left empty for unsupported package managers */
   rootFlag?: string
-  /** 执行本地 bin 的命令拼法，各家差异较大，所以直接给一个函数 */
+  /** How each manager spells running a local bin — varies enough that this is just a function */
   exec: (command: string) => string
 }
 
 /**
- * 各包管理器的差异集中在这张表里，调用方不需要知道任何一条
+ * Every package manager's quirks live in this one table — callers don't need to know any of them
  *
- * npm / pnpm / yarn 的写法已实测验证；bun / deno 依据各自官方文档编写，
- * 未在本机验证（bun 装包在受限网络下会挂起）。
+ * The npm / pnpm / yarn entries have been verified by hand; bun / deno follow their
+ * respective official docs but haven't been verified locally (bun's install hangs
+ * on a restricted network).
  */
 const SPECS: Record<string, PkgManagerSpec> = {
   npm: {
     add: 'install',
     devFlag: '--save-dev',
     remove: 'uninstall',
-    // --no 阻止 npx 在本地找不到命令时联网安装；调用发生时对应的包
-    // （husky/eslint/commitlint）都已经被 ensureInstalled/hasDependency 确认本地存在，
-    // 不会改变正常路径的行为，只是让 npx 调用不再有兜底联网安装的不确定性
+    // --no stops npx from installing over the network when it can't find the command
+    // locally; the package involved (husky/eslint/commitlint) has already been confirmed
+    // present locally by ensureInstalled/hasDependency by the time this runs, so it
+    // doesn't change normal-path behavior — it just removes npx's fallback network-install
+    // uncertainty
     exec: command => `npx --no -- ${command}`,
   },
   pnpm: {
@@ -62,7 +66,7 @@ const SPECS: Record<string, PkgManagerSpec> = {
     exec: command => `pnpm exec ${command}`,
   },
   yarn: {
-    // yarn v1 明确拒绝 `yarn install <pkg>`，且开发依赖标志是 --dev 而非 --save-dev
+    // yarn v1 explicitly rejects `yarn install <pkg>`, and its dev-dependency flag is --dev, not --save-dev
     add: 'add',
     devFlag: '--dev',
     remove: 'remove',
@@ -79,7 +83,7 @@ const SPECS: Record<string, PkgManagerSpec> = {
     add: 'add',
     devFlag: '--dev',
     remove: 'remove',
-    // npm: 前缀直接贴在 bin 名前面，中间没有空格
+    // The npm: prefix attaches directly to the bin name, with no space in between
     exec: command => `deno run -A npm:${command}`,
   },
 }
@@ -103,14 +107,14 @@ export function getPkgManager(): PkgInfo | undefined {
 }
 
 /**
- * 创建当前项目的包管理器
+ * Creates the package manager for the current project
  *
- * 包管理器种类与 monorepo 判定都只在这里解析一次，
- * 之后的每次调用不再重复读文件系统
+ * Both the package manager kind and the monorepo check resolve just once
+ * here; every later call reuses the result instead of hitting the filesystem again
  */
 export function createPackageManager(): PackageManager {
   const detected = getPkgManager()?.name ?? 'npm'
-  // 认不出来的包管理器一律按 npm 处理
+  // Any unrecognized package manager falls back to npm
   const name = detected in SPECS ? detected : 'npm'
   const spec = SPECS[name]
   const rootFlag = spec.rootFlag && isMonorepo() ? ` ${spec.rootFlag}` : ''
@@ -133,7 +137,7 @@ export function createPackageManager(): PackageManager {
         await execCommand(fullCommand)
       }
       catch {
-        // 调用方已声明不关心成败，吞掉错误让流程继续
+        // The caller has declared it doesn't care about the outcome; swallow the error and continue
       }
     },
 
@@ -153,7 +157,7 @@ export function createPackageManager(): PackageManager {
         s.success(`succeed to uninstall ${pkg}!`)
       }
       catch (e) {
-        // 先停掉 spinner 再抛，否则错误信息会和转动中的 spinner 抢同一行
+        // Stop the spinner before throwing, otherwise the error message competes with the spinning line
         s.stop()
         throw new ScriptError(`Failed to uninstall ${pkg}.`, { cause: e })
       }

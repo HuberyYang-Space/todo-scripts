@@ -25,7 +25,7 @@ export interface PackageJsonLike {
   'devDependencies'?: Record<string, string>
   'lint-staged'?: Record<string, string>
   'config'?: {
-    // cz-git 在 path 之外还支持 alias / messages / types / scopes 等字段
+    // cz-git also supports alias / messages / types / scopes etc. alongside path
     commitizen?: { path: string, [key: string]: any }
     [key: string]: any
   }
@@ -36,18 +36,19 @@ const { bold, dim, bgYellow, bgRed, isColorSupported } = colors
 
 const BRAND_NAME = 'TODO-SCRIPT'
 const BANNER_FONT_NAME = 'todo-script-banner'
-/** figlet 'ANSI Shadow' 字体渲染 "TODO-SCRIPT" 的实测宽度是 85 列，留出安全边距 */
+/** figlet's 'ANSI Shadow' font renders "TODO-SCRIPT" at a measured 85 columns wide; this leaves a safety margin */
 const BANNER_MIN_WIDTH = 90
 const BANNER_GRADIENT_COLORS = ['#00c6ff', '#a34dff']
 
 let isBannerFontRegistered = false
 
 /**
- * 脚本执行过程中的预期内失败
+ * An expected failure during script execution
  *
- * 叶子函数只负责抛出它，不负责打印、更不负责结束进程；
- * 收口在 bin/index.js —— 那里是唯一调用 process.exit 的地方。
- * 非 ScriptError 的错误视为真实 bug，交给 node 打完整堆栈。
+ * Leaf functions only throw it — they never print or terminate the process;
+ * that all happens in bin/index.js, the only place that calls process.exit.
+ * Any error that isn't a ScriptError is treated as a real bug and left to
+ * node's own full stack trace.
  */
 export class ScriptError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -56,18 +57,12 @@ export class ScriptError extends Error {
   }
 }
 
-/**
- * print warning message
- */
 export function printWarn(msg: string) {
   console.log(' ')
   console.log(`${bgYellow(' WARN ')} ${msg}`)
   console.log(' ')
 }
 
-/**
- * print error message
- */
 export function printErr(msg: string) {
   console.log(' ')
   console.log(`${bgRed(' ERROR ')} ${msg}`)
@@ -75,12 +70,12 @@ export function printErr(msg: string) {
 }
 
 /**
- * 根据终端宽度与渲染能力，决定 banner 用渐变大字还是纯文本
+ * Decides whether the banner renders as a gradient wordmark or plain text,
+ * based on terminal width and rendering capability
  *
- * 纯函数，不碰 process.stdout，方便单测覆盖判定逻辑
- * @param {number} columns - 终端可用列宽
- * @param {boolean} canRenderGradient - 是否可以渲染渐变（真终端 TTY 且支持颜色）
- * @returns {'gradient' | 'plain'} - 渲染模式
+ * Pure function that never touches process.stdout, so this decision logic stays unit-testable
+ * @param columns - the terminal's available column width
+ * @param canRenderGradient - true only when stdout is a real TTY that supports color
  */
 export function resolveBannerMode(columns: number, canRenderGradient: boolean): 'gradient' | 'plain' {
   if (!canRenderGradient)
@@ -91,11 +86,10 @@ export function resolveBannerMode(columns: number, canRenderGradient: boolean): 
 }
 
 /**
- * print banner
- *
- * 只有真终端（TTY）+ 支持颜色 + 宽度足够时才渲染渐变大字：
- * picocolors 在 win32 上不看 TTY 直接判定支持颜色，
- * 所以这里显式带上 isTTY，不能只靠 columns 是否为 0 去间接判断
+ * Only renders the gradient wordmark when stdout is a real TTY, supports color,
+ * and is wide enough. picocolors alone isn't sufficient on win32 — it reports
+ * color support without checking TTY-ness — so isTTY is checked explicitly here
+ * rather than inferred from columns being 0.
  */
 export function banner() {
   const { version = '--', author = 'HuberyYang' } = getPkgInfo()
@@ -128,9 +122,6 @@ export function banner() {
   console.log('')
 }
 
-/**
- * get package information
- */
 function getPkgInfo() {
   const filePath = fileURLToPath(import.meta.url)
   const dirPath = path.dirname(filePath)
@@ -146,10 +137,6 @@ function getPkgInfo() {
   }
 }
 
-/**
- * execute command
- * @param {string} command - command to be executed
- */
 export async function execCommand(command: string) {
   const [file, ...commandArguments] = parseCommandString(command)
   try {
@@ -161,25 +148,24 @@ export async function execCommand(command: string) {
 }
 
 /**
- * 读取 package.json，文件不存在时返回 undefined
+ * Reads package.json, returning undefined if the file doesn't exist
  *
- * 与 getPackageJSON 的区别只在于吞掉「文件不存在」这一种情况；
- * 内容解析失败仍然抛错 —— 那是真实错误，不该被静默
- * @returns {PackageJsonLike | undefined} - package.json 内容
+ * The only difference from getPackageJSON is that it swallows the "file
+ * missing" case; a parse failure still throws — that's a real error and
+ * shouldn't be silenced
  */
 function tryReadPackageJSON(): PackageJsonLike | undefined {
   return isRootFileExist('package.json') ? getPackageJSON() : undefined
 }
 
 /**
- * 项目是否已经具备这个依赖
+ * Whether the project already has this dependency
  *
- * 需要同时满足：node_modules 下确实存在，且 package.json 里声明过。
- * 只看 node_modules 会被提升上来的传递依赖骗过 —— 依赖并没有写进
- * package.json，却被判定为「已安装」而跳过安装；只看声明则可能拿到
- * 一个没有真正装上的包。
- * @param {string} pkg - package name
- * @returns {boolean} - result
+ * Both checks must pass: it exists under node_modules, and it's declared
+ * in package.json. Checking node_modules alone can be fooled by a hoisted
+ * transitive dependency — never written to package.json, yet judged
+ * "installed" and skipped; checking only the declaration risks a package
+ * that's declared but never actually installed.
  */
 export function hasDependency(pkg: string): boolean {
   if (!isRootFileExist(`node_modules/${pkg}`))
@@ -190,8 +176,7 @@ export function hasDependency(pkg: string): boolean {
 }
 
 /**
- * check whether the package.json file exists
- * @returns {boolean} - result
+ * Checks whether a file exists in the project root
  */
 export function isRootFileExist(file: string): boolean {
   const cwd = process.cwd()
@@ -203,11 +188,10 @@ export function isRootFileExist(file: string): boolean {
  * check whether the project is a monorepo
  * by detecting a non-empty `packages` field in pnpm-workspace.yaml
  * or a non-empty `workspaces` field in package.json
- * @returns {boolean} - result
  */
 export function isMonorepo(): boolean {
-  // 谓词不应该终止流程：没有 package.json 时判定为非 monorepo，
-  // 而不是让 getPackageJSON 的「文件不存在」错误从这里抛出去
+  // A predicate shouldn't halt the flow: treat a missing package.json as
+  // "not a monorepo" rather than letting getPackageJSON's "file missing" error escape from here
   const pkg = tryReadPackageJSON()
   if (Array.isArray(pkg?.workspaces) && pkg.workspaces.length > 0)
     return true
@@ -228,7 +212,6 @@ export function isMonorepo(): boolean {
 /**
  * check whether the project is a TypeScript project
  * by scanning for tsconfig*.json files in the project root
- * @returns {boolean} - result
  */
 export function isTsProject(): boolean {
   const cwd = process.cwd()
@@ -239,7 +222,8 @@ export function isTsProject(): boolean {
 /**
  * get the package.json in object format
  *
- * 文件不存在或解析失败一律抛错，因此调用方拿到的一定是有效对象、无需再判空
+ * Always throws if the file is missing or invalid, so callers get back a
+ * valid object without needing a null check
  */
 export function getPackageJSON(): PackageJsonLike {
   const cwd = process.cwd()
@@ -257,10 +241,6 @@ export function getPackageJSON(): PackageJsonLike {
   }
 }
 
-/**
- * write package.json
- * @param {PackageJsonLike} data - content
- */
 export async function writePackageJSON(data: PackageJsonLike) {
   try {
     await w('package.json', `${JSON.stringify(data, null, 2)}\n`)
