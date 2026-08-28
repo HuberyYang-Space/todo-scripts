@@ -9,11 +9,11 @@ import { banner, ScriptError } from '@/utils'
 import { createPackageManager } from '@/utils/package-manager'
 
 /**
- * 供 bin/index.js 收口使用
+ * Re-exported for bin/index.js to consume
  *
- * 不能让 bin 直接 import '@/utils' 的产物：tsdown 把共享代码打进带 hash 的
- * chunk（如 dist/constants-CaIpLqQE.js），文件名每次构建都可能变。
- * dist/main.js 是唯一稳定的入口，所以由它转出去。
+ * The bin can't import from '@/utils' directly: tsdown bundles shared code into
+ * a hashed chunk (e.g. dist/constants-CaIpLqQE.js) whose filename can change on
+ * every build. dist/main.js is the only stable entry point, so it re-exports these.
  */
 export { printErr, ScriptError } from '@/utils'
 
@@ -21,7 +21,7 @@ const { bold, green } = colors
 
 export async function main() {
   banner()
-  // 从 argv[2] 起解析，因此 `hubery --help` 和 `hubery <script> --help` 都成立
+  // Parses starting from argv[2], so both `hubery --help` and `hubery <script> --help` work
   const options = mri<ArgvOptions>(process.argv.slice(2), {
     boolean: ['clear', 'czgit', 'help'],
     alias: { h: 'help' },

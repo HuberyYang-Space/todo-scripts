@@ -31,7 +31,7 @@ vi.mock('@/utils', () => ({
   writePackageJSON: writePackageJSONMock,
 }))
 
-// 唯一一个包管理器 seam：脚本只通过它跟 npm/pnpm/yarn 打交道
+// The one and only package manager seam: the script only talks to npm/pnpm/yarn through this
 vi.mock('@/utils/package-manager', () => ({
   createPackageManager: () => ({
     name: 'pnpm',
@@ -48,7 +48,7 @@ vi.mock('yocto-spinner', () => ({
 
 const { init } = await import('@/scripts/commitlint-init')
 
-// resolve() 在 windows 上返回反斜杠路径，断言前统一转成 posix 风格，两个平台都能命中
+// resolve() returns backslash paths on windows; normalize to posix before asserting so both platforms match
 function toPosix(p: unknown): string {
   return String(p).replaceAll('\\', '/')
 }
@@ -57,7 +57,7 @@ describe('commitlint-init init()', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     pkgState = { name: 'demo' }
-    // resetAllMocks 会清掉 implementation，这里重设各 mock 的默认行为
+    // resetAllMocks clears implementations, so re-establish each mock's default behavior here
     getPackageJSONMock.mockImplementation(() => pkgState)
     ensureInstalledMock.mockResolvedValue(undefined)
     pmExecMock.mockResolvedValue(undefined)
@@ -80,7 +80,7 @@ describe('commitlint-init init()', () => {
 
   it('默认（非 czgit）应该只安装 4 个基础依赖', async () => {
     await init({})
-    // 一次调用装完，不再逐包串行
+    // Installed in a single call, not serially package by package
     expect(ensureInstalledMock).toHaveBeenCalledTimes(1)
     expect(ensureInstalledMock).toHaveBeenCalledWith(
       ['@commitlint/cli', '@commitlint/config-conventional', 'husky', 'lint-staged'],
@@ -115,14 +115,15 @@ describe('commitlint-init init()', () => {
   })
 
   it('husky hooks 已存在时应该保留用户原内容并给出警告', async () => {
-    // husky 9 的 init 会无条件覆写 .husky/pre-commit，所以这里不能「什么都不做」，
-    // 必须把 init 之前读到的原内容写回去，否则用户的钩子会被销毁
+    // husky 9's init unconditionally overwrites .husky/pre-commit, so "do nothing"
+    // isn't an option here — the content read before init must be written back,
+    // otherwise the user's hook would be destroyed
     vi.mocked(existsSync).mockImplementation(p => String(p).includes('.husky'))
     vi.mocked(readFileSync).mockReturnValue('# 用户自己手写的钩子')
     await init({})
     expect(writeFile).toHaveBeenCalledWith(expect.stringMatching(/\.husky[\\/]pre-commit$/), '# 用户自己手写的钩子')
     expect(writeFile).toHaveBeenCalledWith(expect.stringMatching(/\.husky[\\/]commit-msg$/), '# 用户自己手写的钩子')
-    // 不能写成我们自己的钩子内容
+    // Must not be overwritten with our own hook content
     expect(writeFile).not.toHaveBeenCalledWith(expect.stringMatching(/\.husky[\\/]pre-commit$/), expect.stringContaining('lint-staged'))
     expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('.husky/pre-commit'))
     expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('.husky/commit-msg'))
@@ -156,8 +157,8 @@ describe('commitlint-init init()', () => {
   })
 
   it('husky init 自己创建的 pre-commit 不应该挡住我们的钩子', async () => {
-    // 回归用例：husky init 会生成一个内容为 `npm test` 的 .husky/pre-commit。
-    // 存在性判断必须发生在 husky init 之前，否则我们的钩子永远写不进去。
+    // Regression case: husky init generates a .husky/pre-commit whose content is `npm test`.
+    // The existence check must happen before husky init runs, otherwise our hook never gets written.
     let huskyInitialized = false
     pmExecMock.mockImplementation(async (command: string) => {
       if (command === 'husky init')
@@ -172,7 +173,7 @@ describe('commitlint-init init()', () => {
       expect.stringMatching(/\.husky[\\/]pre-commit$/),
       expect.stringContaining('lint-staged'),
     )
-    // 这个钩子本来就不属于用户，不该冒出「已存在」的提示
+    // This hook was never the user's to begin with, so no "already exists" warning should fire
     expect(printWarnMock).not.toHaveBeenCalledWith(expect.stringContaining('.husky/pre-commit'))
   })
 
@@ -222,7 +223,7 @@ describe('commitlint-init init()', () => {
   })
 
   it('husky init 写入的 scripts.prepare 不应该被后续 package.json 写入覆盖掉', async () => {
-    // 模拟真实 husky init 的副作用：无条件往 package.json 写 scripts.prepare
+    // Simulate the real side effect of husky init: unconditionally writes scripts.prepare into package.json
     pmExecMock.mockImplementation(async (command: string) => {
       if (command === 'husky init')
         pkgState = { ...pkgState, scripts: { ...pkgState.scripts, prepare: 'husky' } }
@@ -235,7 +236,7 @@ describe('commitlint-init init()', () => {
   it('不应该再往 package.json 里写临时的 fix 脚本', async () => {
     hasDependencyMock.mockImplementation(pkg => pkg === 'eslint')
     await init({})
-    // package.json 只在写配置那一步被写入一次，lint 不再产生额外往返
+    // package.json is written exactly once, during the config-writing step; lint no longer causes an extra round trip
     expect(writePackageJSONMock).toHaveBeenCalledTimes(1)
     for (const [written] of writePackageJSONMock.mock.calls)
       expect(written.scripts!['__hubery__:fix']).toBeUndefined()

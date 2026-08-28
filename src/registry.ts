@@ -2,20 +2,21 @@ import type { ArgvOptions } from '@/utils'
 import { green } from 'picocolors'
 
 export interface Script {
-  /** 子命令名，用户在命令行里输入的就是它 */
+  /** Subcommand name, exactly what the user types on the command line */
   name: string
-  /** 帮助信息里的一句话说明 */
+  /** One-line description shown in help text */
   summary: string
   summaryEn: string
-  /** 按需加载脚本实现 */
+  /** Lazily loads the script implementation */
   load: () => Promise<{ init: (options: ArgvOptions) => Promise<void> }>
 }
 
 /**
- * 所有可用子命令的唯一清单
+ * The single source of truth for all available subcommands
  *
- * 新增脚本只需要在这里加一项 —— 帮助信息由它渲染，
- * 命令派发也查它，不存在两份需要手工同步的列表
+ * Adding a new script only requires appending an entry here — help text
+ * renders from it and dispatch looks it up too, so there's no second
+ * list to keep in sync by hand
  */
 export const SCRIPTS: Script[] = [
   {
@@ -31,9 +32,9 @@ export function findScript(name: string | undefined): Script | undefined {
 }
 
 /**
- * 帮助信息
+ * Renders the help text
  *
- * 可用指令部分从 SCRIPTS 派生，不会和实际支持的命令脱节
+ * The available-commands section derives from SCRIPTS, so it can't drift from what's actually supported
  */
 export function renderHelp(): string {
   const commands = SCRIPTS

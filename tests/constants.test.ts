@@ -6,7 +6,7 @@ import {
   REPO_URL,
 } from '@/constants'
 
-// DEFAULT_PKG_NAME / REPO_URL - 基础常量
+// DEFAULT_PKG_NAME / REPO_URL - basic constants
 describe('基础常量', () => {
   it('default_PKG_NAME 应该是正确的包名', () => {
     expect(DEFAULT_PKG_NAME).toBe('@huberyyang/todo-scripts')
@@ -18,10 +18,10 @@ describe('基础常量', () => {
   })
 })
 
-// CONFIG_COMMITLINT - 标准 commitlint 配置模板
+// CONFIG_COMMITLINT - the standard commitlint config template
 describe('config_COMMITLINT', () => {
   it('应该是有效的 JavaScript 导出语句', () => {
-    // 配置模板应该以 export default 开头
+    // The config template should start with export default
     expect(CONFIG_COMMITLINT).toMatch(/^export default/)
   })
 
@@ -30,7 +30,7 @@ describe('config_COMMITLINT', () => {
   })
 
   it('应该包含必要的 commit 类型', () => {
-    // 验证常用的 commit 类型是否都在配置中
+    // Verify all the common commit types are present in the config
     const requiredTypes = ['feat', 'fix', 'docs', 'style', 'refactor', 'test', 'chore', 'perf', 'ci', 'build', 'revert']
     for (const type of requiredTypes) {
       expect(CONFIG_COMMITLINT).toContain(`'${type}'`)
@@ -38,7 +38,7 @@ describe('config_COMMITLINT', () => {
   })
 })
 
-// CONFIG_COMMITLINT_CZGIT - cz-git 增强配置模板
+// CONFIG_COMMITLINT_CZGIT - the cz-git-enhanced config template
 describe('config_COMMITLINT_CZGIT', () => {
   it('应该包含 cz-git 的类型声明注释', () => {
     expect(CONFIG_COMMITLINT_CZGIT).toContain('cz-git')
@@ -49,20 +49,20 @@ describe('config_COMMITLINT_CZGIT', () => {
   })
 
   it('应该包含 prompt 交互配置', () => {
-    // cz-git 的核心功能是交互式提交，需要 prompt 配置
+    // cz-git's core feature is interactive commits, which needs prompt config
     expect(CONFIG_COMMITLINT_CZGIT).toContain('prompt')
     expect(CONFIG_COMMITLINT_CZGIT).toContain('messages')
     expect(CONFIG_COMMITLINT_CZGIT).toContain('types')
   })
 
   it('应该包含中文提示信息', () => {
-    // 项目面向中文用户，prompt 中应该有中文
+    // This project targets Chinese-speaking users, so the prompt should include Chinese text
     expect(CONFIG_COMMITLINT_CZGIT).toContain('选择你要提交的类型')
     expect(CONFIG_COMMITLINT_CZGIT).toContain('填写简短精炼的变更描述')
   })
 
   it('types 数组中每项应该同时包含中英文说明', () => {
-    // 每个 type 都应该有 "中文 | English" 格式的 name
+    // Every type should have a name in the "Chinese | English" format
     expect(CONFIG_COMMITLINT_CZGIT).toContain('新增功能 | A new feature')
     expect(CONFIG_COMMITLINT_CZGIT).toContain('修复缺陷 | A bug fix')
   })
