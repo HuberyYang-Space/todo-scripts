@@ -25,6 +25,10 @@ describe('isLinterKind', () => {
   it('未知值应该返回 false', () => {
     expect(isLinterKind('prettier')).toBe(false)
   })
+
+  it('object.prototype 的属性名应该被拒绝', () => {
+    expect(isLinterKind('constructor')).toBe(false)
+  })
 })
 
 describe('isLinterInstalled', () => {

@@ -38,7 +38,7 @@ const LINTER_SPECS: Record<LinterKind, LinterSpec> = {
 }
 
 export function isLinterKind(value: string): value is LinterKind {
-  return value in LINTER_SPECS
+  return Object.hasOwn(LINTER_SPECS, value)
 }
 
 export function isLinterInstalled(kind: LinterKind): boolean {
