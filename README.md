@@ -90,7 +90,7 @@ bunx hubery commitlint-init
 #### 🎉 测试
 
 > [!NOTE]
-> eslint 会在每次执行 commit 前自动执行，如需更改 commit 钩子执行前的命令，可自行修改 **lint-staged.config.mjs**
+> 已探测到的 linter（ESLint / Biome / Oxlint）会在每次执行 commit 前自动执行，如需更改 commit 钩子执行前的命令，可自行修改 **lint-staged.config.mjs**
 
 ```shell
 git add .
@@ -126,8 +126,8 @@ git commit -m "test commitlint"
 **🔀 自动初始化 Git**
 若当前目录尚未执行过 `git init`（不存在 `.git` 目录），脚本会自动初始化 git 仓库，确保 husky hooks 能正常注册
 
-**🔍 自动集成 ESLint**
-若项目已安装 ESLint（`node_modules` 存在且 `package.json` 中声明了依赖），脚本在生成配置文件后会自动对其执行 lint fix，确保生成的配置文件符合项目代码风格，直接提交即可
+**🔍 自动集成项目已安装的 linter**
+脚本会探测项目已安装的 ESLint / Biome / Oxlint（`node_modules` 存在且 `package.json` 中声明了依赖），在生成配置文件后自动用探测到的工具对其执行 lint fix，确保生成的配置文件符合项目代码风格，直接提交即可
 
 #### 📁 执行后生成的内容
 

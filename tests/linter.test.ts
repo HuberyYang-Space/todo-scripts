@@ -114,9 +114,9 @@ describe('renderLintStagedConfig', () => {
     expect(renderLintStagedConfig(kind)).toContain(expected)
   })
 
-  it('none 时应该只生成占位注释，不生成生效规则', () => {
+  it('none 时应该生成一条空任务的 * 规则（合法但不生效），而不是空对象', () => {
     const content = renderLintStagedConfig('none')
     expect(content).toContain('export default')
-    expect(content).not.toMatch(/^\s*'\*':/m)
+    expect(content).toMatch(/'\*':\s*\[\]/)
   })
 })

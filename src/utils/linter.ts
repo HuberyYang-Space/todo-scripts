@@ -62,8 +62,9 @@ export function getFixCommand(kind: LinterKind, targets: string[]): string {
 export function renderLintStagedConfig(choice: LinterKind | 'none'): string {
   if (choice === 'none') {
     return `export default {
-  // No linter detected, and none selected — add your own rule here, e.g.:
+  // No linter detected, and none selected — replace with your own rule, e.g.:
   // '*': 'eslint --fix --no-error-on-unmatched-pattern',
+  '*': [],
 }
 `
   }

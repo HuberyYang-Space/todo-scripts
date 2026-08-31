@@ -90,7 +90,7 @@ bunx hubery commitlint-init
 #### 🎉 Test
 
 > [!NOTE]
-> ESLint runs automatically before every commit. To change the pre-commit hook command, edit **lint-staged.config.mjs**.
+> The detected linter (ESLint / Biome / Oxlint) runs automatically before every commit. To change the pre-commit hook command, edit **lint-staged.config.mjs**.
 
 ```shell
 git add .
@@ -126,8 +126,8 @@ Detects monorepo setups and automatically appends the workspace flag for each pa
 **🔀 Auto-initialize Git**
 If `git init` has not been run in the current directory (no `.git` folder), the script initializes a Git repository automatically so husky hooks can be registered properly.
 
-**🔍 Auto-integrate ESLint**
-If ESLint is installed in the project (present in `node_modules` and declared in `package.json`), the script runs lint fix on the generated config files to ensure they match the project's code style — ready to commit immediately.
+**🔍 Auto-integrate the project's installed linter**
+The script detects whichever of ESLint, Biome, or Oxlint is installed in the project (present in `node_modules` and declared in `package.json`), then runs a lint fix pass with that tool on the generated config files to ensure they match the project's code style — ready to commit immediately.
 
 #### 📁 Generated Files
 

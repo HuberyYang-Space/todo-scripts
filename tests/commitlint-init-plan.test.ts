@@ -76,9 +76,9 @@ describe('planSetup 的 lint-staged 内容', () => {
     expect(content).toContain(`'*': 'oxlint --fix --no-error-on-unmatched-pattern'`)
   })
 
-  it('没有 linter 时应该只生成占位注释', () => {
+  it('没有 linter 时应该生成一条空任务的 * 规则（合法但不生效）', () => {
     const { content } = planSetup({}, { isTsProject: true, pm, linter: 'none' }).lintStagedConfigFile
-    expect(content).not.toMatch(/^\s*'\*':/m)
+    expect(content).toMatch(/'\*':\s*\[\]/)
   })
 })
 
