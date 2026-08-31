@@ -51,8 +51,9 @@ Utility scripts to simplify frontend project configuration
 ${commands}
 
 参数 / Options:
-  -h, --help                         查看帮助 / show help
-  --clear                            清洁执行 - 执行完脚本后卸载模块 / uninstall the module after running
-  --czgit                            配置 cz-git / enable cz-git
+  -h, --help                            查看帮助 / show help
+  --clear                               清洁执行 - 执行完脚本后卸载模块 / uninstall the module after running
+  --czgit                               配置 cz-git / enable cz-git
+  --linter=<eslint|biome|oxlint|none>   指定 lint-staged 检查工具，跳过自动探测和交互询问 / specify the linter for lint-staged, skipping auto-detect and the prompt
 `
 }

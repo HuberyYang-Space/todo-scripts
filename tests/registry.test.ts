@@ -48,5 +48,6 @@ describe('renderHelp', () => {
     expect(help).toContain('--help')
     expect(help).toContain('--clear')
     expect(help).toContain('--czgit')
+    expect(help).toContain('--linter')
   })
 })
