@@ -1,4 +1,5 @@
 import type { PackageJsonLike } from '@/utils'
+import type { LinterKind } from '@/utils/linter'
 import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,10 +14,10 @@ vi.mock('node:fs/promises', () => ({
 }))
 
 const ensureInstalledMock = vi.fn(async (_pkgs: string[], _options?: { dev?: boolean }) => {})
-const hasDependencyMock = vi.fn((_pkg: string) => false)
 const execCommandMock = vi.fn(async () => {})
 const pmExecMock = vi.fn(async (_command: string, _options?: { allowFailure?: boolean }) => {})
 const isTsProjectMock = vi.fn(() => true)
+const isInteractiveMock = vi.fn(() => false)
 const printWarnMock = vi.fn()
 const writePackageJSONMock = vi.fn(async (_data: PackageJsonLike) => {})
 let pkgState: PackageJsonLike
@@ -25,10 +26,32 @@ const getPackageJSONMock = vi.fn((): PackageJsonLike => pkgState)
 vi.mock('@/utils', () => ({
   execCommand: execCommandMock,
   getPackageJSON: getPackageJSONMock,
-  hasDependency: hasDependencyMock,
+  isInteractive: isInteractiveMock,
   isTsProject: isTsProjectMock,
   printWarn: printWarnMock,
   writePackageJSON: writePackageJSONMock,
+}))
+
+const detectLinterMock = vi.fn((): LinterKind | undefined => undefined)
+const isLinterInstalledMock = vi.fn((_kind: LinterKind) => false)
+const isLinterKindMock = vi.fn((value: string): value is LinterKind =>
+  (['eslint', 'biome', 'oxlint'] as string[]).includes(value))
+const getFixCommandMock = vi.fn((kind: LinterKind, targets: string[]) => `${kind} ${targets.join(' ')} --fix`)
+const renderLintStagedConfigMock = vi.fn((choice: LinterKind | 'none') =>
+  choice === 'none' ? 'export default {}\n' : `export default { '*': '${choice}-fix-command' }\n`)
+
+vi.mock('@/utils/linter', () => ({
+  detectLinter: detectLinterMock,
+  getFixCommand: getFixCommandMock,
+  isLinterInstalled: isLinterInstalledMock,
+  isLinterKind: isLinterKindMock,
+  renderLintStagedConfig: renderLintStagedConfigMock,
+}))
+
+const promptLinterChoiceMock = vi.fn(async (): Promise<LinterKind | 'none' | undefined> => 'none')
+
+vi.mock('@/utils/prompt', () => ({
+  promptLinterChoice: promptLinterChoiceMock,
 }))
 
 // The one and only package manager seam: the script only talks to npm/pnpm/yarn through this
@@ -63,7 +86,15 @@ describe('commitlint-init init()', () => {
     pmExecMock.mockResolvedValue(undefined)
     writePackageJSONMock.mockResolvedValue(undefined)
     isTsProjectMock.mockReturnValue(true)
-    hasDependencyMock.mockReturnValue(false)
+    isInteractiveMock.mockReturnValue(false)
+    detectLinterMock.mockReturnValue(undefined)
+    isLinterInstalledMock.mockReturnValue(false)
+    isLinterKindMock.mockImplementation((value: string): value is LinterKind =>
+      (['eslint', 'biome', 'oxlint'] as string[]).includes(value))
+    getFixCommandMock.mockImplementation((kind: LinterKind, targets: string[]) => `${kind} ${targets.join(' ')} --fix`)
+    renderLintStagedConfigMock.mockImplementation((choice: LinterKind | 'none') =>
+      choice === 'none' ? 'export default {}\n' : `export default { '*': '${choice}-fix-command' }\n`)
+    promptLinterChoiceMock.mockResolvedValue('none')
     vi.mocked(existsSync).mockReturnValue(false)
   })
 
@@ -130,8 +161,9 @@ describe('commitlint-init init()', () => {
   })
 
   it('lint-staged 配置文件不存在时应该写入 lint-staged.config.mjs', async () => {
+    detectLinterMock.mockReturnValue('eslint')
     await init({})
-    expect(writeFile).toHaveBeenCalledWith('lint-staged.config.mjs', expect.stringContaining('eslint --fix'))
+    expect(writeFile).toHaveBeenCalledWith('lint-staged.config.mjs', expect.stringContaining('eslint-fix-command'))
   })
 
   it('lint-staged.config.mjs 已存在时应该跳过写入并给出警告', async () => {
@@ -204,7 +236,8 @@ describe('commitlint-init init()', () => {
   })
 
   it('检测到 eslint 时应该直接执行本地 eslint，且允许失败', async () => {
-    hasDependencyMock.mockImplementation(pkg => pkg === 'eslint')
+    detectLinterMock.mockReturnValue('eslint')
+    isLinterInstalledMock.mockImplementation(kind => kind === 'eslint')
     await init({})
     expect(pmExecMock).toHaveBeenCalledWith(
       'eslint package.json commitlint.config.ts lint-staged.config.mjs --fix',
@@ -212,9 +245,10 @@ describe('commitlint-init init()', () => {
     )
   })
 
-  it('package.json 已有内联 lint-staged 字段时，eslint --fix 不应该引用未生成的配置文件', async () => {
+  it('package.json 已有内联 lint-staged 字段时，收尾修复不应该引用未生成的配置文件', async () => {
     pkgState = { 'name': 'demo', 'lint-staged': { '*.ts': 'my-own-linter' } }
-    hasDependencyMock.mockImplementation(pkg => pkg === 'eslint')
+    detectLinterMock.mockReturnValue('eslint')
+    isLinterInstalledMock.mockImplementation(kind => kind === 'eslint')
     await init({})
     expect(pmExecMock).toHaveBeenCalledWith(
       'eslint package.json commitlint.config.ts --fix',
@@ -234,7 +268,8 @@ describe('commitlint-init init()', () => {
   })
 
   it('不应该再往 package.json 里写临时的 fix 脚本', async () => {
-    hasDependencyMock.mockImplementation(pkg => pkg === 'eslint')
+    detectLinterMock.mockReturnValue('eslint')
+    isLinterInstalledMock.mockImplementation(kind => kind === 'eslint')
     await init({})
     // package.json is written exactly once, during the config-writing step; lint no longer causes an extra round trip
     expect(writePackageJSONMock).toHaveBeenCalledTimes(1)
@@ -242,12 +277,83 @@ describe('commitlint-init init()', () => {
       expect(written.scripts!['__hubery__:fix']).toBeUndefined()
   })
 
-  it('未检测到 eslint 时不应该运行 lint', async () => {
-    hasDependencyMock.mockReturnValue(false)
+  it('未检测到任何 linter 时不应该运行 lint', async () => {
+    detectLinterMock.mockReturnValue(undefined)
+    isInteractiveMock.mockReturnValue(false)
     await init({})
     expect(pmExecMock).not.toHaveBeenCalledWith(
-      expect.stringContaining('eslint'),
+      expect.stringContaining('--fix'),
       expect.anything(),
     )
+  })
+
+  describe('linter 选择', () => {
+    it('--linter=none 时应该跳过 lint 相关规则和收尾修复', async () => {
+      await init({ linter: 'none' })
+      expect(pmExecMock).not.toHaveBeenCalledWith(expect.stringContaining('--fix'), expect.anything())
+      expect(detectLinterMock).not.toHaveBeenCalled()
+      expect(promptLinterChoiceMock).not.toHaveBeenCalled()
+    })
+
+    it('--linter=biome 应该绕开自动探测，直接使用 biome', async () => {
+      isLinterInstalledMock.mockImplementation(kind => kind === 'biome')
+      await init({ linter: 'biome' })
+      expect(detectLinterMock).not.toHaveBeenCalled()
+      expect(promptLinterChoiceMock).not.toHaveBeenCalled()
+      expect(pmExecMock).toHaveBeenCalledWith(expect.stringContaining('biome'), { allowFailure: true })
+    })
+
+    it('--linter=biome 但项目其实没装 biome 时不应该执行收尾修复', async () => {
+      isLinterInstalledMock.mockReturnValue(false)
+      await init({ linter: 'biome' })
+      expect(pmExecMock).not.toHaveBeenCalledWith(expect.stringContaining('--fix'), expect.anything())
+    })
+
+    it('无法识别的 --linter 值应该给出警告并回退到自动探测', async () => {
+      detectLinterMock.mockReturnValue('eslint')
+      isLinterInstalledMock.mockImplementation(kind => kind === 'eslint')
+      await init({ linter: 'not-a-real-linter' })
+      expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('not-a-real-linter'))
+      expect(detectLinterMock).toHaveBeenCalled()
+    })
+
+    it('探测不到任何 linter 且处于交互环境时应该弹出提示', async () => {
+      detectLinterMock.mockReturnValue(undefined)
+      isInteractiveMock.mockReturnValue(true)
+      promptLinterChoiceMock.mockResolvedValue('oxlint')
+      isLinterInstalledMock.mockImplementation(kind => kind === 'oxlint')
+      await init({})
+      expect(promptLinterChoiceMock).toHaveBeenCalledTimes(1)
+      expect(pmExecMock).toHaveBeenCalledWith(expect.stringContaining('oxlint'), { allowFailure: true })
+    })
+
+    it('探测不到任何 linter 且非交互环境时应该跳过并给出警告，不弹出提示', async () => {
+      detectLinterMock.mockReturnValue(undefined)
+      isInteractiveMock.mockReturnValue(false)
+      await init({})
+      expect(promptLinterChoiceMock).not.toHaveBeenCalled()
+      expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('No linter detected'))
+    })
+
+    it('交互提示被取消时应该跳过并给出警告', async () => {
+      detectLinterMock.mockReturnValue(undefined)
+      isInteractiveMock.mockReturnValue(true)
+      promptLinterChoiceMock.mockResolvedValue(undefined)
+      await init({})
+      expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('cancelled'))
+      expect(pmExecMock).not.toHaveBeenCalledWith(expect.stringContaining('--fix'), expect.anything())
+    })
+
+    it('裸 --linter（mri 解析为布尔值 true）不应该抛出异常，应回退到自动探测', async () => {
+      // mri parses a bare `--linter` (no attached value) as boolean true, not a string,
+      // since main.ts doesn't yet declare `linter` in its `string` array (that's Task 6's job).
+      // resolveLinterChoice must defend against this at runtime despite ArgvOptions.linter's
+      // static `string | undefined` type.
+      detectLinterMock.mockReturnValue('eslint')
+      isLinterInstalledMock.mockImplementation(kind => kind === 'eslint')
+      await expect(init({ linter: true as any })).resolves.not.toThrow()
+      expect(detectLinterMock).toHaveBeenCalled()
+      expect(pmExecMock).toHaveBeenCalledWith(expect.stringContaining('eslint'), { allowFailure: true })
+    })
   })
 })

@@ -98,4 +98,10 @@ describe('main', () => {
     await main()
     expect(bannerMock).toHaveBeenCalledTimes(1)
   })
+
+  it('--linter=biome 应该被解析成字符串，而不是被强转成布尔值', async () => {
+    process.argv = ['node', 'hubery', 'commitlint-init', '--linter=biome']
+    await main()
+    expect(initMock).toHaveBeenCalledWith(expect.objectContaining({ linter: 'biome' }))
+  })
 })

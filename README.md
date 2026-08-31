@@ -85,11 +85,12 @@ bunx hubery commitlint-init
 - `-h, --help` 查看帮助
 - `--clear` 清洁执行 - 执行完脚本后卸载模块
 - `--czgit` 配置[cz-git](https://github.com/Zhengqbbb/cz-git)支持
+- `--linter=<eslint|biome|oxlint|none>` 指定 lint-staged 使用的检查工具，跳过自动探测和交互询问
 
 #### 🎉 测试
 
 > [!NOTE]
-> eslint 会在每次执行 commit 前自动执行，如需更改 commit 钩子执行前的命令，可自行修改 **lint-staged.config.mjs**
+> 已探测到的 linter（ESLint / Biome / Oxlint）会在每次执行 commit 前自动执行，如需更改 commit 钩子执行前的命令，可自行修改 **lint-staged.config.mjs**
 
 ```shell
 git add .
@@ -125,8 +126,8 @@ git commit -m "test commitlint"
 **🔀 自动初始化 Git**
 若当前目录尚未执行过 `git init`（不存在 `.git` 目录），脚本会自动初始化 git 仓库，确保 husky hooks 能正常注册
 
-**🔍 自动集成 ESLint**
-若项目已安装 ESLint（`node_modules` 存在且 `package.json` 中声明了依赖），脚本在生成配置文件后会自动对其执行 lint fix，确保生成的配置文件符合项目代码风格，直接提交即可
+**🔍 自动集成项目已安装的 linter**
+脚本会探测项目已安装的 ESLint / Biome / Oxlint（`node_modules` 存在且 `package.json` 中声明了依赖），在生成配置文件后自动用探测到的工具对其执行 lint fix，确保生成的配置文件符合项目代码风格，直接提交即可
 
 #### 📁 执行后生成的内容
 
@@ -152,12 +153,13 @@ your-project/
 }
 ```
 
-`lint-staged.config.mjs` 的默认内容：
+脚本会自动探测项目已安装的 ESLint / Biome / Oxlint，生成对应的 `lint-staged.config.mjs` 规则；什么都探测不到时，交互式终端里会询问你想用哪一个（或者跳过自己配置），非交互环境（CI、管道输入等）下会直接跳过并给出提示。也可以用 `--linter=<eslint|biome|oxlint|none>` 显式指定，绕开探测和询问。
+
+以探测到 ESLint 为例，`lint-staged.config.mjs` 的内容：
 
 ```js
 export default {
-  // '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}': 'eslint --fix',
-  '*': 'eslint --fix',
+  '*': 'eslint --fix --no-error-on-unmatched-pattern',
 }
 ```
 

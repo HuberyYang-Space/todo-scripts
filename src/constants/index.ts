@@ -100,12 +100,5 @@ ${renderTypeEnum()}
 }
 `
 
-export const CONFIG_LINT_STAGED
-  = `export default {
-  // '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}': 'eslint --fix',
-  '*': 'eslint --fix',
-}
-`
-
 export const DEFAULT_PKG_NAME = '@huberyyang/todo-scripts'
 export const REPO_URL = 'https://github.com/Hub-yang/todo-scripts'

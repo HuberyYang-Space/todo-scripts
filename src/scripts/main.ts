@@ -24,6 +24,7 @@ export async function main() {
   // Parses starting from argv[2], so both `hubery --help` and `hubery <script> --help` work
   const options = mri<ArgvOptions>(process.argv.slice(2), {
     boolean: ['clear', 'czgit', 'help'],
+    string: ['linter'],
     alias: { h: 'help' },
   })
 

@@ -85,11 +85,12 @@ bunx hubery commitlint-init
 - `-h, --help` Show help
 - `--clear` Clean run — uninstall the module after execution
 - `--czgit` Configure [cz-git](https://github.com/Zhengqbbb/cz-git) support
+- `--linter=<eslint|biome|oxlint|none>` Specify which linter drives lint-staged, skipping auto-detection and the prompt
 
 #### 🎉 Test
 
 > [!NOTE]
-> ESLint runs automatically before every commit. To change the pre-commit hook command, edit **lint-staged.config.mjs**.
+> The detected linter (ESLint / Biome / Oxlint) runs automatically before every commit. To change the pre-commit hook command, edit **lint-staged.config.mjs**.
 
 ```shell
 git add .
@@ -125,8 +126,8 @@ Detects monorepo setups and automatically appends the workspace flag for each pa
 **🔀 Auto-initialize Git**
 If `git init` has not been run in the current directory (no `.git` folder), the script initializes a Git repository automatically so husky hooks can be registered properly.
 
-**🔍 Auto-integrate ESLint**
-If ESLint is installed in the project (present in `node_modules` and declared in `package.json`), the script runs lint fix on the generated config files to ensure they match the project's code style — ready to commit immediately.
+**🔍 Auto-integrate the project's installed linter**
+The script detects whichever of ESLint, Biome, or Oxlint is installed in the project (present in `node_modules` and declared in `package.json`), then runs a lint fix pass with that tool on the generated config files to ensure they match the project's code style — ready to commit immediately.
 
 #### 📁 Generated Files
 
@@ -152,12 +153,13 @@ New additions to `package.json`:
 }
 ```
 
-Default content of `lint-staged.config.mjs`:
+The script auto-detects whether the project has ESLint, Biome, or Oxlint installed and generates the matching `lint-staged.config.mjs` rule. If none is detected, an interactive terminal will prompt you to pick one (or skip and configure it yourself); a non-interactive environment (CI, piped input, etc.) skips the prompt and prints a warning instead. You can also pass `--linter=<eslint|biome|oxlint|none>` to bypass detection and the prompt entirely.
+
+Assuming ESLint is detected, the content of `lint-staged.config.mjs`:
 
 ```js
 export default {
-  // '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}': 'eslint --fix',
-  '*': 'eslint --fix',
+  '*': 'eslint --fix --no-error-on-unmatched-pattern',
 }
 ```
 

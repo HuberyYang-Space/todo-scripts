@@ -1,13 +1,16 @@
 import type { ArgvOptions, PackageJsonLike } from '@/utils'
+import type { LinterKind } from '@/utils/linter'
 import type { PackageManager } from '@/utils/package-manager'
 import { existsSync, readFileSync } from 'node:fs'
 import { writeFile as w } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import yoctoSpinner from 'yocto-spinner'
-import { CONFIG_COMMITLINT, CONFIG_COMMITLINT_CZGIT, CONFIG_LINT_STAGED } from '@/constants'
-import { execCommand, getPackageJSON, hasDependency, isTsProject, printWarn, writePackageJSON } from '@/utils'
+import { CONFIG_COMMITLINT, CONFIG_COMMITLINT_CZGIT } from '@/constants'
+import { execCommand, getPackageJSON, isInteractive, isTsProject, printWarn, writePackageJSON } from '@/utils'
+import { detectLinter, getFixCommand, isLinterInstalled, isLinterKind, renderLintStagedConfig } from '@/utils/linter'
 import { createPackageManager } from '@/utils/package-manager'
+import { promptLinterChoice } from '@/utils/prompt'
 
 interface HookFile {
   path: string
@@ -34,7 +37,7 @@ export interface SetupPlan {
  */
 export function planSetup(
   options: ArgvOptions,
-  env: { isTsProject: boolean, pm: PackageManager },
+  env: { isTsProject: boolean, pm: PackageManager, linter: LinterKind | 'none' },
 ): SetupPlan {
   const useCZGit = Boolean(options.czgit)
   const packages = ['@commitlint/cli', '@commitlint/config-conventional', 'husky', 'lint-staged']
@@ -48,7 +51,7 @@ export function planSetup(
       content: useCZGit ? CONFIG_COMMITLINT_CZGIT : CONFIG_COMMITLINT,
     },
     // Always .mjs: it's ESM regardless of the target project's package.json "type" field
-    lintStagedConfigFile: { name: 'lint-staged.config.mjs', content: CONFIG_LINT_STAGED },
+    lintStagedConfigFile: { name: 'lint-staged.config.mjs', content: renderLintStagedConfig(env.linter) },
     hooks: [
       // Hooks are shell scripts — we write a command string here, not execute it, hence formatExec
       { path: '.husky/pre-commit', content: env.pm.formatExec('lint-staged') },
@@ -106,11 +109,38 @@ function snapshotExistingHooks(cwd: string, hooks: HookFile[]): Map<string, stri
   return snapshot
 }
 
+async function resolveLinterChoice(options: ArgvOptions): Promise<LinterKind | 'none'> {
+  const flag = typeof options.linter === 'string' ? options.linter.toLowerCase() : undefined
+  if (flag === 'none')
+    return 'none'
+  if (flag && isLinterKind(flag))
+    return flag
+  if (flag)
+    printWarn(`Unknown --linter value "${options.linter}"; falling back to auto-detect.`)
+
+  const detected = detectLinter()
+  if (detected)
+    return detected
+
+  if (!isInteractive()) {
+    printWarn('No linter detected, and no interactive terminal to ask — skipping the lint-staged rule; edit lint-staged.config.mjs yourself.')
+    return 'none'
+  }
+
+  const answer = await promptLinterChoice()
+  if (answer === undefined) {
+    printWarn('Prompt cancelled — skipping the lint-staged rule.')
+    return 'none'
+  }
+  return answer
+}
+
 export async function init(options: ArgvOptions) {
   const spinner = yoctoSpinner()
   // Package manager and monorepo detection resolve once here, reused by every command below
   const pm = createPackageManager()
-  const plan = planSetup(options, { isTsProject: isTsProject(), pm })
+  const linterChoice = await resolveLinterChoice(options)
+  const plan = planSetup(options, { isTsProject: isTsProject(), pm, linter: linterChoice })
 
   const cwd = process.cwd()
   const path = resolve(cwd, '.git')
@@ -169,15 +199,15 @@ export async function init(options: ArgvOptions) {
   await writePackageJSON(patchPackageJSON(getPackageJSON(), options))
   spinner.success('package.json writing succeed!')
 
-  if (hasDependency('eslint')) {
+  if (linterChoice !== 'none' && isLinterInstalled(linterChoice)) {
     spinner.start('lint running')
-    // Run the project's local eslint directly instead of stashing a temp script into
+    // Run the project's local linter directly instead of stashing a temp script into
     // package.json; a formatting failure here doesn't affect setup, the config files are
     // already written by this point
     const lintTargets = ['package.json', name]
     if (lintStagedFilePresent)
       lintTargets.push(lintStagedName)
-    await pm.exec(`eslint ${lintTargets.join(' ')} --fix`, { allowFailure: true })
+    await pm.exec(getFixCommand(linterChoice, lintTargets), { allowFailure: true })
     spinner.success('lint down!')
   }
 }
