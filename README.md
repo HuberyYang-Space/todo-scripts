@@ -156,7 +156,8 @@ your-project/
 
 ```js
 export default {
-  '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}': 'eslint --fix',
+  // '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}': 'eslint --fix',
+  '*': 'eslint --fix',
 }
 ```
 
