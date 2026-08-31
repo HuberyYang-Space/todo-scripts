@@ -17,6 +17,7 @@ export interface ArgvOptions {
   clear?: boolean
   czgit?: boolean
   help?: boolean
+  linter?: string
 }
 
 export interface PackageJsonLike {
@@ -83,6 +84,14 @@ export function resolveBannerMode(columns: number, canRenderGradient: boolean): 
   if (columns < BANNER_MIN_WIDTH)
     return 'plain'
   return 'gradient'
+}
+
+/**
+ * Whether this is a real interactive terminal — never true in CI or when
+ * stdin isn't a TTY (piped input, non-interactive test runners)
+ */
+export function isInteractive(): boolean {
+  return Boolean(process.stdin.isTTY) && !process.env.CI
 }
 
 /**

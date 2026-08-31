@@ -7,6 +7,7 @@ import {
   execCommand,
   getPackageJSON,
   hasDependency,
+  isInteractive,
   isMonorepo,
   isRootFileExist,
   isTsProject,
@@ -232,6 +233,40 @@ describe('resolveBannerMode', () => {
   it('非 TTY 场景下 columns 为 0 时应该返回 plain', () => {
     // banner() passes in 0 when process.stdout.columns is undefined
     expect(resolveBannerMode(0, true)).toBe('plain')
+  })
+})
+
+// ========================================
+// isInteractive - whether stdin is a real interactive terminal
+// ========================================
+describe('isInteractive', () => {
+  const originalIsTTY = process.stdin.isTTY
+  const originalCI = process.env.CI
+
+  afterEach(() => {
+    Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true })
+    if (originalCI === undefined)
+      delete process.env.CI
+    else
+      process.env.CI = originalCI
+  })
+
+  it('tTY 且没有 CI 环境变量时应该返回 true', () => {
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+    delete process.env.CI
+    expect(isInteractive()).toBe(true)
+  })
+
+  it('非 TTY 时应该返回 false', () => {
+    Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true })
+    delete process.env.CI
+    expect(isInteractive()).toBe(false)
+  })
+
+  it('即便是 TTY，设置了 CI 环境变量时也应该返回 false', () => {
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+    process.env.CI = 'true'
+    expect(isInteractive()).toBe(false)
   })
 })
 
