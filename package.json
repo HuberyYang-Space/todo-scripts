@@ -35,10 +35,12 @@
   "scripts": {
     "dev": "tsdown --watch",
     "build": "tsdown",
-    "build:prod": "nr typecheck && nr lint:fix && nr test && tsdown",
+    "build:prod": "nr typecheck && nr lint:fix && nr test && tsdown && nr test:e2e",
     "preview": "nr build && node bin/index.js commitlint-init",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:e2e:watch": "vitest --config vitest.e2e.config.ts",
     "typecheck": "tsc",
     "lint": "eslint .",
     "lint:fix": "eslint --fix",
