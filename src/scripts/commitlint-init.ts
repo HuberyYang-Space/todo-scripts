@@ -110,7 +110,7 @@ function snapshotExistingHooks(cwd: string, hooks: HookFile[]): Map<string, stri
 }
 
 async function resolveLinterChoice(options: ArgvOptions): Promise<LinterKind | 'none'> {
-  const flag = options.linter?.toLowerCase()
+  const flag = typeof options.linter === 'string' ? options.linter.toLowerCase() : undefined
   if (flag === 'none')
     return 'none'
   if (flag && isLinterKind(flag))

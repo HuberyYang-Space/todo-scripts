@@ -343,5 +343,17 @@ describe('commitlint-init init()', () => {
       expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('cancelled'))
       expect(pmExecMock).not.toHaveBeenCalledWith(expect.stringContaining('--fix'), expect.anything())
     })
+
+    it('裸 --linter（mri 解析为布尔值 true）不应该抛出异常，应回退到自动探测', async () => {
+      // mri parses a bare `--linter` (no attached value) as boolean true, not a string,
+      // since main.ts doesn't yet declare `linter` in its `string` array (that's Task 6's job).
+      // resolveLinterChoice must defend against this at runtime despite ArgvOptions.linter's
+      // static `string | undefined` type.
+      detectLinterMock.mockReturnValue('eslint')
+      isLinterInstalledMock.mockImplementation(kind => kind === 'eslint')
+      await expect(init({ linter: true as any })).resolves.not.toThrow()
+      expect(detectLinterMock).toHaveBeenCalled()
+      expect(pmExecMock).toHaveBeenCalledWith(expect.stringContaining('eslint'), { allowFailure: true })
+    })
   })
 })
