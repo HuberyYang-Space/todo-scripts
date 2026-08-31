@@ -9,7 +9,7 @@ const pm = {
 
 describe('planSetup', () => {
   it('默认应该规划 4 个基础依赖', () => {
-    expect(planSetup({}, { isTsProject: true, pm }).packages).toEqual([
+    expect(planSetup({}, { isTsProject: true, pm, linter: 'eslint' }).packages).toEqual([
       '@commitlint/cli',
       '@commitlint/config-conventional',
       'husky',
@@ -18,7 +18,7 @@ describe('planSetup', () => {
   })
 
   it('--czgit 时应该追加 commitizen 和 cz-git', () => {
-    expect(planSetup({ czgit: true }, { isTsProject: true, pm }).packages).toEqual([
+    expect(planSetup({ czgit: true }, { isTsProject: true, pm, linter: 'eslint' }).packages).toEqual([
       '@commitlint/cli',
       '@commitlint/config-conventional',
       'husky',
@@ -29,34 +29,56 @@ describe('planSetup', () => {
   })
 
   it('ts 项目的配置文件应该是 .ts', () => {
-    expect(planSetup({}, { isTsProject: true, pm }).configFile.name).toBe('commitlint.config.ts')
+    expect(planSetup({}, { isTsProject: true, pm, linter: 'eslint' }).configFile.name).toBe('commitlint.config.ts')
   })
 
   it('非 TS 项目的配置文件应该是 .js', () => {
-    expect(planSetup({}, { isTsProject: false, pm }).configFile.name).toBe('commitlint.config.js')
+    expect(planSetup({}, { isTsProject: false, pm, linter: 'eslint' }).configFile.name).toBe('commitlint.config.js')
   })
 
   it('--czgit 时配置文件内容应该带 prompt 交互配置', () => {
-    const { content } = planSetup({ czgit: true }, { isTsProject: true, pm }).configFile
+    const { content } = planSetup({ czgit: true }, { isTsProject: true, pm, linter: 'eslint' }).configFile
     expect(content).toContain('prompt')
     expect(content).toContain('cz-git')
   })
 
   it('默认配置文件内容不应该带 prompt 交互配置', () => {
-    const { content } = planSetup({}, { isTsProject: true, pm }).configFile
+    const { content } = planSetup({}, { isTsProject: true, pm, linter: 'eslint' }).configFile
     expect(content).not.toContain('prompt')
   })
 
   it('钩子内容应该用包管理器的 exec 前缀渲染', () => {
-    expect(planSetup({}, { isTsProject: true, pm }).hooks).toEqual([
+    expect(planSetup({}, { isTsProject: true, pm, linter: 'eslint' }).hooks).toEqual([
       { path: '.husky/pre-commit', content: 'pnpm exec lint-staged' },
       { path: '.husky/commit-msg', content: 'pnpm exec commitlint --edit "$1"' },
     ])
   })
 
   it('lint-staged 配置文件固定生成 lint-staged.config.mjs，不区分 ts/js 项目', () => {
-    expect(planSetup({}, { isTsProject: true, pm }).lintStagedConfigFile.name).toBe('lint-staged.config.mjs')
-    expect(planSetup({}, { isTsProject: false, pm }).lintStagedConfigFile.name).toBe('lint-staged.config.mjs')
+    expect(planSetup({}, { isTsProject: true, pm, linter: 'eslint' }).lintStagedConfigFile.name).toBe('lint-staged.config.mjs')
+    expect(planSetup({}, { isTsProject: false, pm, linter: 'eslint' }).lintStagedConfigFile.name).toBe('lint-staged.config.mjs')
+  })
+})
+
+describe('planSetup 的 lint-staged 内容', () => {
+  it('探测到 eslint 时应该生成 eslint 规则', () => {
+    const { content } = planSetup({}, { isTsProject: true, pm, linter: 'eslint' }).lintStagedConfigFile
+    expect(content).toContain(`'*': 'eslint --fix --no-error-on-unmatched-pattern'`)
+  })
+
+  it('探测到 biome 时应该生成 biome 规则', () => {
+    const { content } = planSetup({}, { isTsProject: true, pm, linter: 'biome' }).lintStagedConfigFile
+    expect(content).toContain(`'*': 'biome check --write --no-errors-on-unmatched'`)
+  })
+
+  it('探测到 oxlint 时应该生成 oxlint 规则', () => {
+    const { content } = planSetup({}, { isTsProject: true, pm, linter: 'oxlint' }).lintStagedConfigFile
+    expect(content).toContain(`'*': 'oxlint --fix --no-error-on-unmatched-pattern'`)
+  })
+
+  it('没有 linter 时应该只生成占位注释', () => {
+    const { content } = planSetup({}, { isTsProject: true, pm, linter: 'none' }).lintStagedConfigFile
+    expect(content).not.toMatch(/^\s*'\*':/m)
   })
 })
 
