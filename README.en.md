@@ -85,6 +85,7 @@ bunx hubery commitlint-init
 - `-h, --help` Show help
 - `--clear` Clean run — uninstall the module after execution
 - `--czgit` Configure [cz-git](https://github.com/Zhengqbbb/cz-git) support
+- `--linter=<eslint|biome|oxlint|none>` Specify which linter drives lint-staged, skipping auto-detection and the prompt
 
 #### 🎉 Test
 
@@ -152,12 +153,13 @@ New additions to `package.json`:
 }
 ```
 
-Default content of `lint-staged.config.mjs`:
+The script auto-detects whether the project has ESLint, Biome, or Oxlint installed and generates the matching `lint-staged.config.mjs` rule. If none is detected, an interactive terminal will prompt you to pick one (or skip and configure it yourself); a non-interactive environment (CI, piped input, etc.) skips the prompt and prints a warning instead. You can also pass `--linter=<eslint|biome|oxlint|none>` to bypass detection and the prompt entirely.
+
+Assuming ESLint is detected, the content of `lint-staged.config.mjs`:
 
 ```js
 export default {
-  // '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}': 'eslint --fix',
-  '*': 'eslint --fix',
+  '*': 'eslint --fix --no-error-on-unmatched-pattern',
 }
 ```
 

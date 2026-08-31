@@ -85,6 +85,7 @@ bunx hubery commitlint-init
 - `-h, --help` 查看帮助
 - `--clear` 清洁执行 - 执行完脚本后卸载模块
 - `--czgit` 配置[cz-git](https://github.com/Zhengqbbb/cz-git)支持
+- `--linter=<eslint|biome|oxlint|none>` 指定 lint-staged 使用的检查工具，跳过自动探测和交互询问
 
 #### 🎉 测试
 
@@ -152,12 +153,13 @@ your-project/
 }
 ```
 
-`lint-staged.config.mjs` 的默认内容：
+脚本会自动探测项目已安装的 ESLint / Biome / Oxlint，生成对应的 `lint-staged.config.mjs` 规则；什么都探测不到时，交互式终端里会询问你想用哪一个（或者跳过自己配置），非交互环境（CI、管道输入等）下会直接跳过并给出提示。也可以用 `--linter=<eslint|biome|oxlint|none>` 显式指定，绕开探测和询问。
+
+以探测到 ESLint 为例，`lint-staged.config.mjs` 的内容：
 
 ```js
 export default {
-  // '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}': 'eslint --fix',
-  '*': 'eslint --fix',
+  '*': 'eslint --fix --no-error-on-unmatched-pattern',
 }
 ```
 
