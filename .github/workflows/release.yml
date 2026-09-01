@@ -1,5 +1,8 @@
 name: Release
 
+# Triggered by the v* tag that a local `pnpm release` (bumpp) pushes.
+# workflow_dispatch re-runs the same job against an existing tag, to backfill
+# a Release that was never generated.
 on:
   push:
     tags:
@@ -7,29 +10,72 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 要生成 Release 的 tag（如 v1.1.0），用于补发历史版本
+        description: Existing tag to (re)generate a Release for, e.g. v1.1.0
         required: true
 
+# Creating the Release needs write access; everything else stays read-only.
 permissions:
   contents: write
+
+env:
+  # Single source of truth for the tag being released: the pushed ref, or the
+  # dispatch input when backfilling. Read as $TAG inside run steps so the value
+  # is never interpolated into the shell.
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
+          # Check out the tag itself, so a dispatch backfill gates the code that
+          # was actually released rather than the default branch's current head.
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          # changelogithub needs the full history to find the previous tag;
+          # a shallow clone yields an empty changelog.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      # Must come before setup-node, otherwise `cache: pnpm` cannot find pnpm.
+      # Which version gets installed is decided by package.json's packageManager.
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: lts/*
           cache: pnpm
 
+      - run: pnpm install --frozen-lockfile
+
+      # Guard against a mistyped tag: a Release named v1.2.0 cut from a tree that
+      # still says 1.1.9 would ship release notes pointing at the wrong version.
+      - name: Verify tag matches package.json version
+        run: |
+          # A dispatch input typed without the v prefix would pass the version
+          # check below, then send every later tag lookup at a ref that does not exist.
+          case "$TAG" in
+            v*) ;;
+            *) echo "Tag $TAG must start with 'v', aborting"; exit 1 ;;
+          esac
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "${TAG#v}" != "$PKG" ]; then
+            echo "Tag $TAG does not match package.json version $PKG, aborting"
+            exit 1
+          fi
+
+      # Release gate: the same commands as the local `build:prod`, spelled out
+      # without `nr` (which needs a global @antfu/ni that CI does not have).
+      # A tag pushed without running the local gate still cannot reach a Release.
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      # Builds dist/ itself via globalSetup, so no separate build step is needed.
+      - run: pnpm test:e2e
+
+      # Renders the commits between the two tags into the Release body, following
+      # conventional commits. Pinned to a major: an unpinned dlx would let an
+      # upstream breaking change fail a release at the worst possible moment.
       - name: Generate changelog and GitHub Release
-        run: pnpm dlx changelogithub --to ${{ github.event.inputs.tag || github.ref_name }}
+        run: pnpm dlx changelogithub@15 --to "$TAG"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
