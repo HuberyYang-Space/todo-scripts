@@ -92,6 +92,7 @@ __snapshots__/
 
 # --- 个人维护，不进版本库 (Personal, not version-controlled) ---
 CLAUDE.md
+ROADMAP.md
 spec.md
 
 # --- 本地隔离工作区 (Local isolated worktrees) ---
