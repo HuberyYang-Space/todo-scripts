@@ -12,8 +12,35 @@ describe('cLI 入口与错误路径', () => {
 
     expect(result.exitCode, result.all).toBe(0)
     expect(result.stdout).toContain('commitlint-init')
-    expect(result.stdout).toContain('--linter')
+    // Global help lists the commands and the global flags; per-command flags live
+    // under `hubery <script> --help`, or this becomes unreadable once there are several
+    expect(result.stdout).toContain('--clear')
+    expect(result.stdout).not.toContain('--czgit')
     // --help must be inert: nothing scaffolded, nothing rewritten
+    expect(fixture.tree()).toEqual(before)
+  })
+
+  it('应该在 <script> --help 时打印该子命令自己的参数', async () => {
+    const fixture = await useFixture()
+    const before = fixture.tree()
+
+    const result = await runCli(fixture, ['commitlint-init', '--help'])
+
+    expect(result.exitCode, result.all).toBe(0)
+    expect(result.stdout).toContain('--czgit')
+    expect(result.stdout).toContain('--linter')
+    expect(result.stdout).toContain('--force')
+    expect(fixture.tree()).toEqual(before)
+  })
+
+  it('应该在参数拼错时报错退出，而不是按默认行为跑完', async () => {
+    const fixture = await useFixture()
+    const before = fixture.tree()
+
+    const result = await runCli(fixture, ['commitlint-init', '--czgti'])
+
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stdout).toContain('czgti')
     expect(fixture.tree()).toEqual(before)
   })
 

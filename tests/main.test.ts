@@ -58,7 +58,7 @@ describe('main', () => {
   it('-h 简写同样有效', async () => {
     process.argv = ['node', 'hubery', '-h']
     await main()
-    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('--czgit'))
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('--clear'))
   })
 
   it('传入已注册脚本名时应该调用该脚本的 init', async () => {
@@ -103,5 +103,75 @@ describe('main', () => {
     process.argv = ['node', 'hubery', 'commitlint-init', '--linter=biome']
     await main()
     expect(initMock).toHaveBeenCalledWith(expect.objectContaining({ linter: 'biome' }))
+  })
+})
+
+describe('子命令帮助', () => {
+  const originalArgv = process.argv
+
+  beforeEach(() => {
+    initMock.mockReset()
+    bannerMock.mockReset()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    process.argv = originalArgv
+    vi.restoreAllMocks()
+  })
+
+  it('hubery <script> --help 应该打印该子命令自己的参数', async () => {
+    process.argv = ['node', 'hubery', 'commitlint-init', '--help']
+    await main()
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('--czgit'))
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('--linter'))
+    expect(initMock).not.toHaveBeenCalled()
+  })
+
+  it('不带子命令的 hubery --help 不应该混入子命令参数', async () => {
+    process.argv = ['node', 'hubery', '--help']
+    await main()
+    const printed = vi.mocked(console.log).mock.calls.map(c => String(c[0])).join('\n')
+    expect(printed).toContain('commitlint-init')
+    expect(printed).not.toContain('--czgit')
+  })
+})
+
+describe('未知参数校验', () => {
+  const originalArgv = process.argv
+
+  beforeEach(() => {
+    initMock.mockReset()
+    bannerMock.mockReset()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    process.argv = originalArgv
+    vi.restoreAllMocks()
+  })
+
+  it('拼错的参数应该报错而不是被静默忽略', async () => {
+    // `--czgti` 原来会被 mri 悄悄吞掉，脚本照常按默认行为跑完
+    process.argv = ['node', 'hubery', 'commitlint-init', '--czgti']
+    await expect(main()).rejects.toThrow(ScriptError)
+    expect(initMock).not.toHaveBeenCalled()
+  })
+
+  it('报错信息里应该带上拼错的参数名', async () => {
+    process.argv = ['node', 'hubery', 'commitlint-init', '--czgti']
+    await expect(main()).rejects.toThrow(/czgti/)
+  })
+
+  it('合法的全局参数与子命令参数组合不应该报错', async () => {
+    process.argv = ['node', 'hubery', 'commitlint-init', '--czgit', '--linter=biome']
+    await main()
+    expect(initMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('别名 -h 不应该被当成未知参数', async () => {
+    process.argv = ['node', 'hubery', 'commitlint-init', '-h']
+    await main()
+    expect(initMock).not.toHaveBeenCalled()
   })
 })

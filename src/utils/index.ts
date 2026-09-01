@@ -14,10 +14,12 @@ import { parse as parseYaml } from 'yaml'
 import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
 
 export interface ArgvOptions {
-  clear?: boolean
-  czgit?: boolean
-  help?: boolean
-  linter?: string
+  'clear'?: boolean
+  'czgit'?: boolean
+  'help'?: boolean
+  'linter'?: string
+  'force'?: boolean
+  'dry-run'?: boolean
 }
 
 export interface PackageJsonLike {

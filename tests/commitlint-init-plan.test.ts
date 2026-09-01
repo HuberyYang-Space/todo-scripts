@@ -1,6 +1,6 @@
 import type { PackageManager } from '@/utils/package-manager'
 import { describe, expect, it } from 'vitest'
-import { COMMITLINT_CONFIG_FILES, findExistingConfig, LINT_STAGED_CONFIG_FILES, patchPackageJSON, planSetup, resolveHookContent } from '@/scripts/commitlint-init'
+import { COMMITLINT_CONFIG_FILES, createFileJournal, detectHuskyV4, findExistingConfig, LINT_STAGED_CONFIG_FILES, patchPackageJSON, planSetup, resolveConfigWrite, resolveHookContent, surveyProject } from '@/scripts/commitlint-init'
 
 // Pure function tests: no need to mock the filesystem, subprocess, or spinner
 const pm = {
@@ -265,5 +265,211 @@ describe('配置文件候选清单', () => {
       '.lintstagedrc.yaml',
     ])
       expect(LINT_STAGED_CONFIG_FILES).toContain(file)
+  })
+})
+
+describe('resolveConfigWrite', () => {
+  const target = 'commitlint.config.ts'
+
+  it('没有任何已存在配置时应该写入', () => {
+    expect(resolveConfigWrite(undefined, target, false).write).toBe(true)
+  })
+
+  it('已存在配置且没有 --force 时应该跳过', () => {
+    expect(resolveConfigWrite('.commitlintrc.json', target, false).write).toBe(false)
+  })
+
+  it('--force 且已存在的就是我们要写的文件时应该覆盖', () => {
+    expect(resolveConfigWrite(target, target, true).write).toBe(true)
+  })
+
+  it('--force 但已存在的是另一种文件名时仍然应该跳过', () => {
+    // 覆盖不了 .commitlintrc.json，硬写 commitlint.config.ts 只会制造出两份打架的配置
+    const result = resolveConfigWrite('.commitlintrc.json', target, true)
+    expect(result.write).toBe(false)
+    expect(result.reason).toContain('.commitlintrc.json')
+  })
+
+  it('跳过时应该给出可读的原因', () => {
+    expect(resolveConfigWrite('.commitlintrc.json', target, false).reason).toBeTruthy()
+  })
+})
+
+describe('resolveHookContent 的 --force 行为', () => {
+  const command = 'pnpm exec lint-staged'
+
+  it('--force 时应该用我们的内容覆盖用户已有的钩子', () => {
+    const result = resolveHookContent('#!/bin/sh\necho mine\n', command, { force: true })
+    expect(result.content).toBe(command)
+    expect(result.action).toBe('replaced')
+  })
+
+  it('--force 对不存在的钩子仍然是新建', () => {
+    expect(resolveHookContent(undefined, command, { force: true }).action).toBe('created')
+  })
+})
+
+describe('surveyProject', () => {
+  const plan = planSetup({}, { isTsProject: true, pm, linter: 'eslint' })
+  const base = {
+    exists: () => false,
+    readHook: () => undefined,
+    pkg: { name: 'demo' },
+    force: false,
+  }
+
+  it('干净工程应该需要 git init，且两份配置都要写', () => {
+    const survey = surveyProject(plan, base)
+    expect(survey.needsGitInit).toBe(true)
+    expect(survey.commitlint.write).toBe(true)
+    expect(survey.lintStaged.write).toBe(true)
+  })
+
+  it('已有 .git 时不应该再 git init', () => {
+    const survey = surveyProject(plan, { ...base, exists: f => f === '.git' })
+    expect(survey.needsGitInit).toBe(false)
+  })
+
+  it('应该识别出任意变体的既有 commitlint 配置', () => {
+    const survey = surveyProject(plan, { ...base, exists: f => f === '.commitlintrc.json' })
+    expect(survey.commitlint.write).toBe(false)
+    expect(survey.commitlint.reason).toContain('.commitlintrc.json')
+  })
+
+  it('应该把 package.json 里的 lint-staged 字段也算作既有配置', () => {
+    const survey = surveyProject(plan, { ...base, pkg: { 'name': 'demo', 'lint-staged': { '*': 'x' } } })
+    expect(survey.lintStaged.write).toBe(false)
+  })
+
+  it('钩子不存在时应该规划为新建', () => {
+    const survey = surveyProject(plan, base)
+    expect(survey.hooks.map(h => h.action)).toEqual(['created', 'created'])
+  })
+
+  it('钩子已存在且不含我们的命令时应该规划为追加', () => {
+    const survey = surveyProject(plan, { ...base, readHook: () => 'echo mine\n' })
+    expect(survey.hooks.every(h => h.action === 'appended')).toBe(true)
+  })
+
+  it('--force 时钩子应该规划为覆盖', () => {
+    const survey = surveyProject(plan, { ...base, readHook: () => 'echo mine\n', force: true })
+    expect(survey.hooks.every(h => h.action === 'replaced')).toBe(true)
+  })
+
+  it('survey 只做判断，返回的钩子内容应该带上最终要写入的文本', () => {
+    const survey = surveyProject(plan, { ...base, readHook: () => 'echo mine\n' })
+    expect(survey.hooks[0].content).toContain('echo mine')
+    expect(survey.hooks[0].content).toContain('lint-staged')
+  })
+})
+
+describe('detectHuskyV4', () => {
+  it('没有 v4 残留时应该返回 undefined', () => {
+    expect(detectHuskyV4(() => false, { name: 'demo' })).toBeUndefined()
+  })
+
+  it('应该识别出 .huskyrc 这类 v4 配置文件', () => {
+    const found = detectHuskyV4(f => f === '.huskyrc', { name: 'demo' })
+    expect(found!.source).toBe('.huskyrc')
+  })
+
+  it('应该识别出 package.json 里的 husky 字段', () => {
+    const found = detectHuskyV4(() => false, { name: 'demo', husky: { hooks: { 'pre-commit': 'npm test' } } })
+    expect(found!.source).toContain('package.json')
+  })
+
+  it('应该把 v4 里定义的钩子命令列出来，方便用户手动迁移', () => {
+    const found = detectHuskyV4(() => false, {
+      name: 'demo',
+      husky: { hooks: { 'pre-commit': 'npm test', 'commit-msg': 'commitlint -E HUSKY_GIT_PARAMS' } },
+    })
+    expect(found!.hooks).toEqual({
+      'pre-commit': 'npm test',
+      'commit-msg': 'commitlint -E HUSKY_GIT_PARAMS',
+    })
+  })
+
+  it('配置文件的优先级应该高于 package.json 字段', () => {
+    // husky v4 走 cosmiconfig，独立文件优先
+    const found = detectHuskyV4(f => f === '.huskyrc.json', { name: 'demo', husky: { hooks: {} } })
+    expect(found!.source).toBe('.huskyrc.json')
+  })
+
+  it('只有 husky 字段但没有 hooks 时也应该报出来', () => {
+    const found = detectHuskyV4(() => false, { name: 'demo', husky: {} })
+    expect(found).toBeDefined()
+    expect(found!.hooks).toEqual({})
+  })
+})
+
+describe('createFileJournal', () => {
+  function makeIo(initial: Record<string, string> = {}) {
+    const files = new Map(Object.entries(initial))
+    const removed: string[] = []
+    return {
+      files,
+      removed,
+      io: {
+        exists: (path: string) => files.has(path),
+        read: (path: string) => files.get(path)!,
+        write: async (path: string, content: string) => { files.set(path, content) },
+        remove: async (path: string) => {
+          files.delete(path)
+          removed.push(path)
+        },
+      },
+    }
+  }
+
+  it('回滚时应该删掉本来不存在的文件', async () => {
+    const { io, files, removed } = makeIo()
+    const journal = createFileJournal(io)
+    journal.capture('commitlint.config.ts')
+    await io.write('commitlint.config.ts', '新写的内容')
+
+    await journal.rollback()
+
+    expect(removed).toContain('commitlint.config.ts')
+    expect(files.has('commitlint.config.ts')).toBe(false)
+  })
+
+  it('回滚时应该把本来存在的文件还原成原内容', async () => {
+    const { io, files } = makeIo({ 'package.json': '原始内容' })
+    const journal = createFileJournal(io)
+    journal.capture('package.json')
+    await io.write('package.json', '被改过的内容')
+
+    await journal.rollback()
+
+    expect(files.get('package.json')).toBe('原始内容')
+  })
+
+  it('同一个文件重复 capture 只应该记住最早的状态', async () => {
+    const { io, files } = makeIo({ 'a.txt': '第一版' })
+    const journal = createFileJournal(io)
+    journal.capture('a.txt')
+    await io.write('a.txt', '第二版')
+    journal.capture('a.txt')
+    await io.write('a.txt', '第三版')
+
+    await journal.rollback()
+
+    expect(files.get('a.txt')).toBe('第一版')
+  })
+
+  it('没有 capture 过的文件不应该被回滚动到', async () => {
+    const { io, files } = makeIo({ 'untouched.txt': '别动我' })
+    const journal = createFileJournal(io)
+    journal.capture('other.txt')
+
+    await journal.rollback()
+
+    expect(files.get('untouched.txt')).toBe('别动我')
+  })
+
+  it('什么都没 capture 时回滚应该是安全的空操作', async () => {
+    const { io, removed } = makeIo()
+    await createFileJournal(io).rollback()
+    expect(removed).toEqual([])
   })
 })

@@ -2,7 +2,7 @@ import type { ArgvOptions, PackageJsonLike } from '@/utils'
 import type { LinterKind } from '@/utils/linter'
 import type { PackageManager } from '@/utils/package-manager'
 import { existsSync, readFileSync } from 'node:fs'
-import { writeFile as w } from 'node:fs/promises'
+import { rm, writeFile as w } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import yoctoSpinner from 'yocto-spinner'
@@ -64,6 +64,40 @@ export const LINT_STAGED_CONFIG_FILES = [
   '.lintstagedrc.yml',
   '.lintstagedrc.yaml',
 ]
+
+/**
+ * husky v4's own config locations, in cosmiconfig's search order
+ *
+ * husky 9 ignores all of these. A project upgraded in place keeps the files, so
+ * the hooks they define silently stopped running at some point — worth saying out
+ * loud rather than quietly scaffolding a second, working setup beside them.
+ */
+export const HUSKY_V4_CONFIG_FILES = [
+  '.huskyrc',
+  '.huskyrc.json',
+  '.huskyrc.js',
+  '.huskyrc.cjs',
+  '.huskyrc.yml',
+  '.huskyrc.yaml',
+  'husky.config.js',
+  'husky.config.cjs',
+]
+
+/** Leftover husky v4 config, if any — pure, existence and manifest are injected */
+export function detectHuskyV4(
+  exists: (file: string) => boolean,
+  pkg: PackageJsonLike,
+): { source: string, hooks: Record<string, string> } | undefined {
+  const file = findExistingConfig(HUSKY_V4_CONFIG_FILES, exists)
+  if (file)
+    return { source: file, hooks: {} }
+
+  const field = pkg.husky as { hooks?: Record<string, string> } | undefined
+  if (field)
+    return { source: 'the package.json "husky" field', hooks: field.hooks ?? {} }
+
+  return undefined
+}
 
 /**
  * Returns the first candidate that exists — a pure function, existence is injected
@@ -135,6 +169,28 @@ export function patchPackageJSON(pkg: PackageJsonLike, options: ArgvOptions): Pa
 }
 
 /**
+ * Decides whether to write one of the config files we generate — a pure function
+ *
+ * `--force` re-stamps our own template, so it only overwrites the exact file we
+ * would have written. When the project's config lives under a different filename,
+ * forcing a write would leave two rival configs behind — the very thing the
+ * existence check is there to prevent.
+ */
+export function resolveConfigWrite(
+  existing: string | undefined,
+  target: string,
+  force: boolean,
+): { write: boolean, reason?: string } {
+  if (existing === undefined)
+    return { write: true }
+  if (force && existing === target)
+    return { write: true }
+  if (force)
+    return { write: false, reason: `${existing} already exists and --force only overwrites ${target}; remove it by hand to take ours` }
+  return { write: false, reason: `${existing} already exists` }
+}
+
+/**
  * Decides what a hook file should end up containing — a pure function
  *
  * husky 9's init unconditionally overwrites `.husky/pre-commit`, so init() has to
@@ -145,9 +201,14 @@ export function patchPackageJSON(pkg: PackageJsonLike, options: ArgvOptions): Pa
 export function resolveHookContent(
   original: string | undefined,
   command: string,
-): { content: string, action: 'created' | 'appended' | 'unchanged' } {
+  options: { force?: boolean } = {},
+): { content: string, action: 'created' | 'appended' | 'unchanged' | 'replaced' } {
   if (original === undefined)
     return { content: command, action: 'created' }
+
+  // --force re-stamps our own hook, discarding whatever was there
+  if (options.force)
+    return { content: command, action: 'replaced' }
 
   // Line-level exact match, not a substring test: `lint-staged-extra` is not our command
   if (original.split('\n').some(line => line.trim() === command))
@@ -157,22 +218,97 @@ export function resolveHookContent(
   return { content: `${original}${separator}${command}\n`, action: 'appended' }
 }
 
+export interface FileJournal {
+  /** Remembers a file's state before we touch it. Call before every write. */
+  capture: (path: string) => void
+  /** Puts every captured file back the way it was */
+  rollback: () => Promise<void>
+}
+
 /**
- * Reads the content of any hook files that already exist
+ * Undo log for the files this script writes
  *
- * Must be called before husky init: husky 9's init unconditionally overwrites
- * `.husky/pre-commit` (no existence check in its source), so reading after it
- * runs would only see husky's generated `npm test` — the user's original hook
- * would already be gone
+ * A failure partway through used to leave the project half-configured — packages
+ * installed, some configs written, no hooks. IO is injected so this stays testable
+ * without touching a real filesystem.
+ *
+ * Deliberately NOT rolled back: the dependency install (uninstalling could remove
+ * packages the project already wanted) and `git init` (an initialised repo is
+ * harmless, and removing .git is never worth the risk).
  */
-function snapshotExistingHooks(cwd: string, hooks: HookFile[]): Map<string, string> {
-  const snapshot = new Map<string, string>()
-  for (const hook of hooks) {
-    const target = resolve(cwd, hook.path)
-    if (existsSync(target))
-      snapshot.set(hook.path, readFileSync(target, 'utf-8'))
+export function createFileJournal(io: {
+  exists: (path: string) => boolean
+  read: (path: string) => string
+  write: (path: string, content: string) => Promise<void>
+  remove: (path: string) => Promise<void>
+}): FileJournal {
+  // null means "did not exist before", so rollback deletes rather than restores
+  const before = new Map<string, string | null>()
+
+  return {
+    capture(path) {
+      if (before.has(path))
+        return
+      before.set(path, io.exists(path) ? io.read(path) : null)
+    },
+    async rollback() {
+      for (const [path, content] of before) {
+        if (content === null) {
+          if (io.exists(path))
+            await io.remove(path)
+        }
+        else {
+          await io.write(path, content)
+        }
+      }
+    },
   }
-  return snapshot
+}
+
+export interface ProjectSurvey {
+  needsGitInit: boolean
+  /** Leftover husky v4 config that husky 9 no longer reads */
+  huskyV4?: { source: string, hooks: Record<string, string> }
+  commitlint: { write: boolean, reason?: string }
+  lintStaged: { write: boolean, reason?: string }
+  hooks: { path: string, content: string, action: 'created' | 'appended' | 'unchanged' | 'replaced' }[]
+}
+
+/**
+ * Works out everything init() needs to decide, without changing anything
+ *
+ * Pure — the filesystem and package.json arrive through `env`. Both the real run
+ * and `--dry-run` go through this, so the preview can never disagree with what
+ * actually happens.
+ *
+ * Hook contents must be read here, i.e. before `husky init`: husky 9 overwrites
+ * `.husky/pre-commit` unconditionally (no existence check in its source), so
+ * reading afterwards would only ever see husky's own generated stub.
+ */
+export function surveyProject(
+  plan: SetupPlan,
+  env: {
+    exists: (file: string) => boolean
+    readHook: (path: string) => string | undefined
+    pkg: PackageJsonLike
+    force: boolean
+  },
+): ProjectSurvey {
+  const existingCommitlint = findExistingConfig(COMMITLINT_CONFIG_FILES, env.exists)
+    ?? (env.pkg.commitlint ? 'the package.json "commitlint" field' : undefined)
+  const existingLintStaged = findExistingConfig(LINT_STAGED_CONFIG_FILES, env.exists)
+    ?? (env.pkg['lint-staged'] ? 'the package.json "lint-staged" field' : undefined)
+
+  return {
+    needsGitInit: !env.exists('.git'),
+    huskyV4: detectHuskyV4(env.exists, env.pkg),
+    commitlint: resolveConfigWrite(existingCommitlint, plan.configFile.name, env.force),
+    lintStaged: resolveConfigWrite(existingLintStaged, plan.lintStagedConfigFile.name, env.force),
+    hooks: plan.hooks.map((hook) => {
+      const { content, action } = resolveHookContent(env.readHook(hook.path), hook.content, { force: env.force })
+      return { path: hook.path, content, action }
+    }),
+  }
 }
 
 async function resolveLinterChoice(options: ArgvOptions): Promise<LinterKind | 'none'> {
@@ -209,8 +345,58 @@ export async function init(options: ArgvOptions) {
   const plan = planSetup(options, { isTsProject: isTsProject(), pm, linter: linterChoice })
 
   const cwd = process.cwd()
-  const path = resolve(cwd, '.git')
-  if (!existsSync(path)) {
+  const force = Boolean(options.force)
+  const survey = surveyProject(plan, {
+    exists: file => existsSync(resolve(cwd, file)),
+    readHook: hookPath => existsSync(resolve(cwd, hookPath)) ? readFileSync(resolve(cwd, hookPath), 'utf-8') : undefined,
+    pkg: getPackageJSON(),
+    force,
+  })
+
+  if (options['dry-run']) {
+    printDryRun(plan, survey, linterChoice)
+    return
+  }
+
+  const journal = createFileJournal({
+    exists: file => existsSync(resolve(cwd, file)),
+    read: file => readFileSync(resolve(cwd, file), 'utf-8'),
+    write: (file, fileContent) => w(resolve(cwd, file), fileContent),
+    remove: file => rm(resolve(cwd, file), { force: true }),
+  })
+
+  try {
+    await runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice, journal })
+  }
+  catch (error) {
+    // Leaving a half-configured project behind is worse than the failure itself
+    await journal.rollback()
+    printWarn('Setup failed — the files this script had written were rolled back.')
+    throw error
+  }
+}
+
+interface SetupContext {
+  options: ArgvOptions
+  plan: SetupPlan
+  survey: ProjectSurvey
+  pm: PackageManager
+  spinner: ReturnType<typeof yoctoSpinner>
+  cwd: string
+  linterChoice: LinterKind | 'none'
+  journal: FileJournal
+}
+
+async function runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice, journal }: SetupContext) {
+  if (survey.huskyV4) {
+    const hooks = Object.entries(survey.huskyV4.hooks)
+    const detail = hooks.length
+      ? ` It defines: ${hooks.map(([name, command]) => `${name} -> ${command}`).join('; ')}.`
+      : ''
+    printWarn(`Found husky v4 config in ${survey.huskyV4.source}, which husky 9 does not read — those hooks are not running.${detail} Migrate them into .husky/ and delete the old config.`)
+  }
+
+  if (survey.needsGitInit) {
     spinner.start('git init checking...')
     await execCommand('git init')
     spinner.success('git init down!')
@@ -222,54 +408,49 @@ export async function init(options: ArgvOptions) {
 
   spinner.start('commitlint config running...')
   const { name, content } = plan.configFile
-  // Scan every filename commitlint understands, not just the one we would write —
-  // otherwise a project with `.commitlintrc.json` ends up with two rival configs
-  const existingCommitlintConfig = findExistingConfig(COMMITLINT_CONFIG_FILES, file => existsSync(resolve(cwd, file)))
-    ?? (getPackageJSON().commitlint ? 'the package.json "commitlint" field' : undefined)
-  if (existingCommitlintConfig) {
+  if (!survey.commitlint.write) {
     spinner.stop()
-    printWarn(`commitlint config already exists (${existingCommitlintConfig}), skipped.`)
+    printWarn(`commitlint config skipped — ${survey.commitlint.reason}.`)
   }
   else {
+    journal.capture(name)
     await w(name, content)
     spinner.success('commitlint config succeed!')
   }
 
   spinner.start('lint-staged config running...')
   const { name: lintStagedName, content: lintStagedContent } = plan.lintStagedConfigFile
-  let lintStagedFilePresent = existsSync(resolve(cwd, lintStagedName))
-  // Any of lint-staged's own config filenames counts, plus the legacy inline
-  // package.json field — all of them are a user config we must not overwrite
-  const existingLintStagedConfig = findExistingConfig(LINT_STAGED_CONFIG_FILES, file => existsSync(resolve(cwd, file)))
-    ?? (getPackageJSON()['lint-staged'] ? 'the package.json "lint-staged" field' : undefined)
-  if (existingLintStagedConfig) {
+  if (!survey.lintStaged.write) {
     spinner.stop()
-    printWarn(`lint-staged config already exists (${existingLintStagedConfig}), skipped.`)
+    printWarn(`lint-staged config skipped — ${survey.lintStaged.reason}.`)
   }
   else {
+    journal.capture(lintStagedName)
     await w(lintStagedName, lintStagedContent)
-    lintStagedFilePresent = true
     spinner.success('lint-staged config succeed!')
   }
 
   spinner.start('husky config running...')
-  const existingHooks = snapshotExistingHooks(cwd, plan.hooks)
+  for (const hook of survey.hooks)
+    journal.capture(hook.path)
   await pm.exec('husky init')
-  for (const hook of plan.hooks) {
-    // Restores the user's original content (husky init may have just clobbered it) and
-    // appends our command, so their hook keeps working and ours actually runs
-    const { content: hookContent, action } = resolveHookContent(existingHooks.get(hook.path), hook.content)
-    await w(resolve(cwd, hook.path), hookContent)
-    if (action === 'appended')
-      printWarn(`${hook.path} already exists — appended \`${hook.content}\` to your version.`)
-    else if (action === 'unchanged')
-      printWarn(`${hook.path} already runs \`${hook.content}\`, left as is.`)
+  for (const hook of survey.hooks) {
+    // Restores the user's original content (husky init may have just clobbered it)
+    // with our command appended, so their hook keeps working and ours actually runs
+    await w(resolve(cwd, hook.path), hook.content)
+    if (hook.action === 'appended')
+      printWarn(`${hook.path} already exists — appended our command to your version.`)
+    else if (hook.action === 'unchanged')
+      printWarn(`${hook.path} already runs our command, left as is.`)
+    else if (hook.action === 'replaced')
+      printWarn(`${hook.path} overwritten with ours because of --force.`)
   }
   spinner.success('husky config succeed!')
 
   spinner.start('package.json writing...')
+  journal.capture('package.json')
   // husky init may have just written scripts.prepare into package.json, so this must
-  // re-read rather than reuse the snapshot from the lint-staged check above — otherwise
+  // re-read rather than reuse the snapshot taken by surveyProject above — otherwise
   // husky's write would get overwritten
   await writePackageJSON(patchPackageJSON(getPackageJSON(), options))
   spinner.success('package.json writing succeed!')
@@ -280,9 +461,37 @@ export async function init(options: ArgvOptions) {
     // package.json; a formatting failure here doesn't affect setup, the config files are
     // already written by this point
     const lintTargets = ['package.json', name]
-    if (lintStagedFilePresent)
+    if (survey.lintStaged.write || existsSync(resolve(cwd, lintStagedName)))
       lintTargets.push(lintStagedName)
     await pm.exec(getFixCommand(linterChoice, lintTargets), { allowFailure: true })
     spinner.success('lint down!')
   }
+}
+
+/** Prints what a real run would do, and does none of it */
+function printDryRun(plan: SetupPlan, survey: ProjectSurvey, linter: LinterKind | 'none') {
+  const verbs = {
+    created: 'create',
+    appended: 'append our command to',
+    unchanged: 'leave untouched (already runs our command)',
+    replaced: 'overwrite',
+  } as const
+
+  const steps = [
+    ...(survey.huskyV4 ? [`warn about leftover husky v4 config in ${survey.huskyV4.source}`] : []),
+    ...(survey.needsGitInit ? ['run `git init`'] : []),
+    `ensure dev dependencies: ${plan.packages.join(', ')}`,
+    survey.commitlint.write
+      ? `write ${plan.configFile.name}`
+      : `skip the commitlint config — ${survey.commitlint.reason}`,
+    survey.lintStaged.write
+      ? `write ${plan.lintStagedConfigFile.name}`
+      : `skip the lint-staged config — ${survey.lintStaged.reason}`,
+    'run `husky init`',
+    ...survey.hooks.map(hook => `${verbs[hook.action]} ${hook.path}`),
+    'add the commitlint script to package.json',
+    ...(linter === 'none' ? [] : [`run ${linter} over the generated files`]),
+  ]
+
+  console.log(`--dry-run: nothing was written. A real run would:\n${steps.map(step => `  - ${step}`).join('\n')}`)
 }

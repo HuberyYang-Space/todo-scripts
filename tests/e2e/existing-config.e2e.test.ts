@@ -118,3 +118,109 @@ describe('已有 commitlint / lint-staged 配置变体', () => {
     expect(fixture.read('.lintstagedrc.json')).toContain('my-own-linter')
   })
 })
+
+describe('--force', () => {
+  it('应该覆盖重写我们自己生成的同名配置文件', async () => {
+    const fixture = await useFixture({
+      linters: ['eslint'],
+      typescript: true,
+      files: { 'commitlint.config.ts': '// 旧的、手改过的内容\n' },
+    })
+
+    const result = await runCli(fixture, ['commitlint-init', '--force'])
+    assertOk(result, fixture)
+
+    expect(fixture.read('commitlint.config.ts')).toContain('@commitlint/config-conventional')
+    expect(fixture.read('commitlint.config.ts')).not.toContain('旧的、手改过的内容')
+  })
+
+  it('已存在的是另一种文件名时，--force 也不应该硬写出第二份配置', async () => {
+    const fixture = await useFixture({
+      linters: ['eslint'],
+      typescript: true,
+      files: { '.commitlintrc.json': `{ "extends": ["@commitlint/config-conventional"] }\n` },
+    })
+
+    const result = await runCli(fixture, ['commitlint-init', '--force'])
+    assertOk(result, fixture)
+
+    expect(fixture.exists('commitlint.config.ts')).toBe(false)
+    expect(result.stdout).toContain('.commitlintrc.json')
+  })
+
+  it('应该用我们的钩子覆盖用户已有的钩子', async () => {
+    const fixture = await useFixture({
+      linters: ['eslint'],
+      git: true,
+      files: { '.husky/pre-commit': 'echo mine\n' },
+    })
+
+    const result = await runCli(fixture, ['commitlint-init', '--force'], { packageManager: 'npm' })
+    assertOk(result, fixture)
+
+    expect(fixture.read('.husky/pre-commit')).toBe('npx --no -- lint-staged')
+  })
+})
+
+describe('--dry-run', () => {
+  it('不应该写入任何文件，工程树必须一字不变', async () => {
+    const fixture = await useFixture({ linters: ['eslint'], typescript: true })
+    const before = fixture.tree()
+    const pkgBefore = fixture.read('package.json')
+
+    const result = await runCli(fixture, ['commitlint-init', '--dry-run'])
+    assertOk(result, fixture)
+
+    expect(fixture.tree()).toEqual(before)
+    expect(fixture.read('package.json')).toBe(pkgBefore)
+    expect(fixture.exists('commitlint.config.ts')).toBe(false)
+    expect(fixture.exists('lint-staged.config.mjs')).toBe(false)
+    expect(fixture.exists('.husky')).toBe(false)
+  })
+
+  it('应该打印出将要执行的动作', async () => {
+    const fixture = await useFixture({ linters: ['eslint'], typescript: true })
+
+    const result = await runCli(fixture, ['commitlint-init', '--dry-run'])
+    assertOk(result, fixture)
+
+    expect(result.stdout).toContain('nothing was written')
+    expect(result.stdout).toContain('commitlint.config.ts')
+    expect(result.stdout).toContain('.husky/commit-msg')
+  })
+
+  it('预演结果应该和真实运行的决策一致：已有配置时预览也说会跳过', async () => {
+    const fixture = await useFixture({
+      linters: ['eslint'],
+      typescript: true,
+      files: { '.commitlintrc.json': '{}\n' },
+    })
+
+    const result = await runCli(fixture, ['commitlint-init', '--dry-run'])
+    assertOk(result, fixture)
+
+    expect(result.stdout).toContain('skip the commitlint config')
+    expect(result.stdout).toContain('.commitlintrc.json')
+  })
+})
+
+describe('失败回滚', () => {
+  it('husky init 失败时应该回滚已经写下的配置文件', async () => {
+    // realPackages: [] 表示不真拷贝 husky，只留一个满足 hasDependency 的空壳，
+    // 于是 `husky init` 会真的执行失败——正好用来验证中途失败的处理
+    const fixture = await useFixture({ linters: ['eslint'], typescript: true, realPackages: [] })
+
+    const result = await runCli(fixture, ['commitlint-init'])
+
+    expect(result.exitCode).not.toBe(0)
+    // 证明确实走到了写配置那一步、并且是被回滚掉的——否则本用例可能只是
+    // 在更早的地方就失败了，那样它什么也没验证到
+    // spinner 走 stderr，printWarn 走 stdout —— 两条断言必须各自挑对流
+    expect(result.stderr).toContain('commitlint config succeed')
+    expect(result.stdout).toContain('rolled back')
+    // 配置文件在 husky 那一步之前就写好了，失败后必须被撤销，
+    // 否则项目会停在「有 commitlint 配置但没有钩子」的半配置状态
+    expect(fixture.exists('commitlint.config.ts')).toBe(false)
+    expect(fixture.exists('lint-staged.config.mjs')).toBe(false)
+  })
+})
