@@ -40,6 +40,13 @@ export const GLOBAL_FLAGS: FlagSpec[] = [
     summaryEn: 'show help',
   },
   {
+    name: 'version',
+    type: 'boolean',
+    alias: 'v',
+    summary: '查看版本号',
+    summaryEn: 'show version',
+  },
+  {
     name: 'clear',
     type: 'boolean',
     summary: '清洁执行 - 执行完脚本后卸载模块',

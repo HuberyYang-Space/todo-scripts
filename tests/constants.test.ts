@@ -92,3 +92,11 @@ describe('cONFIG_COMMITLINT_CZGIT 的 issuePrefixes', () => {
     expect(CONFIG_COMMITLINT_CZGIT).toContain(`{ value: 'closes'`)
   })
 })
+
+describe('两份模板的收尾格式', () => {
+  it('两份模板都应该以换行结尾', () => {
+    // 少一个末尾换行会被 linter 和 POSIX 工具挑刺，而且两份模板收尾风格不该不一致
+    expect(CONFIG_COMMITLINT.endsWith('\n')).toBe(true)
+    expect(CONFIG_COMMITLINT_CZGIT.endsWith('\n')).toBe(true)
+  })
+})

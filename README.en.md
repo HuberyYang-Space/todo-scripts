@@ -82,10 +82,23 @@ bunx hubery commitlint-init
 
 #### ⚙️ Options
 
-- `-h, --help` Show help
+Global options (accepted by every command):
+
+- `-h, --help` Show help. `hubery --help` lists the commands; `hubery <command> --help` shows that command's own options
+- `-v, --version` Show version
 - `--clear` Clean run — uninstall the module after execution
+
+`commitlint-init` options:
+
 - `--czgit` Configure [cz-git](https://github.com/Zhengqbbb/cz-git) support
 - `--linter=<eslint|biome|oxlint|none>` Specify which linter drives lint-staged, skipping auto-detection and the prompt
+- `--dry-run` Print what would change without writing anything. Worth running first against an existing project
+- `--force` Overwrite the config files and hooks this tool generates. Same filename only — if your config lives under a different name (say `.commitlintrc.json`), it will not write a second, competing config beside it
+
+> [!NOTE]
+> A mistyped option fails loudly instead of being silently ignored.
+>
+> Re-running against an already-configured project is safe: existing config files are skipped (and you are told which one got in the way), existing git hooks get our command **appended** rather than replacing your content, and an existing commitizen setup is never deleted. If a run fails partway through, the files already written are rolled back rather than left behind.
 
 #### 🎉 Test
 

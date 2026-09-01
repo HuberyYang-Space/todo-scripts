@@ -82,10 +82,23 @@ bunx hubery commitlint-init
 
 #### ⚙️ 参数说明
 
-- `-h, --help` 查看帮助
+全局参数（任何指令都可用）：
+
+- `-h, --help` 查看帮助。`hubery --help` 列出所有指令，`hubery <指令> --help` 查看该指令自己的参数
+- `-v, --version` 查看版本号
 - `--clear` 清洁执行 - 执行完脚本后卸载模块
+
+`commitlint-init` 的参数：
+
 - `--czgit` 配置[cz-git](https://github.com/Zhengqbbb/cz-git)支持
 - `--linter=<eslint|biome|oxlint|none>` 指定 lint-staged 使用的检查工具，跳过自动探测和交互询问
+- `--dry-run` 只打印将要做的改动，不写入任何文件。第一次在一个已有项目上运行时建议先跑一遍
+- `--force` 覆盖重写本工具生成的配置文件与钩子。只覆盖同名文件——如果你的配置放在别的文件名下（比如 `.commitlintrc.json`），它不会硬写出第二份互相打架的配置
+
+> [!NOTE]
+> 拼错的参数会直接报错退出，不会被静默忽略。
+>
+> 在已经配置过的项目上重复运行是安全的：已有的配置文件会被跳过（并告诉你是哪一份挡住了），已有的 git 钩子会**追加**我们的命令而不是覆盖你的内容，已有的 commitizen 配置不会被删除。中途失败时，已经写下的文件会被回滚，不会留下半配置状态。
 
 #### 🎉 测试
 

@@ -175,3 +175,37 @@ describe('未知参数校验', () => {
     expect(initMock).not.toHaveBeenCalled()
   })
 })
+
+describe('--version', () => {
+  const originalArgv = process.argv
+
+  beforeEach(() => {
+    initMock.mockReset()
+    bannerMock.mockReset()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    process.argv = originalArgv
+    vi.restoreAllMocks()
+  })
+
+  it('--version 应该打印版本号且不执行任何脚本', async () => {
+    process.argv = ['node', 'hubery', '--version']
+    await main()
+    expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/^\d+\.\d+\.\d+/))
+    expect(initMock).not.toHaveBeenCalled()
+  })
+
+  it('-v 简写同样有效', async () => {
+    process.argv = ['node', 'hubery', '-v']
+    await main()
+    expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/^\d+\.\d+\.\d+/))
+  })
+
+  it('带子命令时 --version 也应该只打印版本，不跑脚本', async () => {
+    process.argv = ['node', 'hubery', 'commitlint-init', '--version']
+    await main()
+    expect(initMock).not.toHaveBeenCalled()
+  })
+})

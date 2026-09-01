@@ -9,5 +9,9 @@ main().catch((e) => {
   if (!(e instanceof ScriptError))
     throw e
   printErr(e.message)
+  // ScriptError 一路带着 cause，但从前只打 message，底层到底为什么失败被整个吞掉，
+  // 用户只能看到「Failed to execute 'xxx'」这种没有信息量的一行
+  if (e.cause)
+    printErr(`Caused by: ${e.cause.shortMessage ?? e.cause.message ?? e.cause}`)
   process.exit(1)
 })

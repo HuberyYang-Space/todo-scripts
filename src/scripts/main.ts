@@ -6,7 +6,7 @@ import colors from 'picocolors'
 import spinner from 'yocto-spinner'
 import { DEFAULT_PKG_NAME } from '@/constants'
 import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '@/registry'
-import { banner, ScriptError } from '@/utils'
+import { banner, getCliVersion, ScriptError } from '@/utils'
 import { createPackageManager } from '@/utils/package-manager'
 
 /**
@@ -57,6 +57,11 @@ export async function main() {
   const options = mri<ArgvOptions>(process.argv.slice(2), buildParserConfig())
 
   const script = findScript(options._[0])
+
+  if (options.version) {
+    console.log(getCliVersion())
+    return false
+  }
 
   // Resolved before the missing-script error, so `hubery --help` still works
   if (options.help) {

@@ -218,6 +218,9 @@ describe('失败回滚', () => {
     // spinner 走 stderr，printWarn 走 stdout —— 两条断言必须各自挑对流
     expect(result.stderr).toContain('commitlint config succeed')
     expect(result.stdout).toContain('rolled back')
+    // ScriptError 一直带着 cause，但从前只打印 message，底层报错整个被丢掉，
+    // 排障时只能看到「Failed to execute ...」这种没有信息量的一行
+    expect(result.stdout).toContain('Caused by')
     // 配置文件在 husky 那一步之前就写好了，失败后必须被撤销，
     // 否则项目会停在「有 commitlint 配置但没有钩子」的半配置状态
     expect(fixture.exists('commitlint.config.ts')).toBe(false)

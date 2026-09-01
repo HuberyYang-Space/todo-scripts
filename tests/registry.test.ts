@@ -110,3 +110,12 @@ describe('renderScriptHelp', () => {
       expect(help).toContain(`--${flag.name}`)
   })
 })
+
+describe('全局参数清单', () => {
+  it('应该包含 help / version / clear', () => {
+    const names = GLOBAL_FLAGS.map(f => f.name)
+    expect(names).toContain('help')
+    expect(names).toContain('version')
+    expect(names).toContain('clear')
+  })
+})

@@ -17,6 +17,7 @@ export interface ArgvOptions {
   'clear'?: boolean
   'czgit'?: boolean
   'help'?: boolean
+  'version'?: boolean
   'linter'?: string
   'force'?: boolean
   'dry-run'?: boolean
@@ -92,6 +93,11 @@ export function resolveBannerMode(columns: number, canRenderGradient: boolean): 
  * Whether this is a real interactive terminal — never true in CI or when
  * stdin isn't a TTY (piped input, non-interactive test runners)
  */
+/** This CLI's own version, straight from its package.json */
+export function getCliVersion(): string {
+  return getPkgInfo().version ?? 'unknown'
+}
+
 export function isInteractive(): boolean {
   return Boolean(process.stdin.isTTY) && !process.env.CI
 }
@@ -133,18 +139,26 @@ export function banner() {
   console.log('')
 }
 
+/**
+ * Reads this CLI's own package.json
+ *
+ * Walks up from wherever this module ends up rather than using a fixed relative
+ * path: the source sits at `src/utils/` but the build collapses it into `dist/`,
+ * so any single `../` guess is wrong in one of the two layouts.
+ */
 function getPkgInfo() {
-  const filePath = fileURLToPath(import.meta.url)
-  const dirPath = path.dirname(filePath)
-  const packageJsonPath = path.resolve(dirPath, '../package.json')
+  let dirPath = path.dirname(fileURLToPath(import.meta.url))
 
-  try {
-    const raw = fs.readFileSync(packageJsonPath, 'utf-8')
-    const data = JSON.parse(raw)
-    return data
-  }
-  catch {
-    return {}
+  while (true) {
+    try {
+      return JSON.parse(fs.readFileSync(path.resolve(dirPath, 'package.json'), 'utf-8'))
+    }
+    catch {
+      const parent = path.dirname(dirPath)
+      if (parent === dirPath)
+        return {}
+      dirPath = parent
+    }
   }
 }
 

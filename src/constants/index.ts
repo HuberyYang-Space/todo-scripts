@@ -26,7 +26,8 @@ export const CONFIG_COMMITLINT
 ${renderTypeEnum()}
     ]],
   },
-}`
+}
+`
 
 export const CONFIG_COMMITLINT_CZGIT
   = `/** @type {import('cz-git').UserConfig} */
