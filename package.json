@@ -6,13 +6,13 @@
   "description": "Some public executable scripts",
   "author": "HuberyYang",
   "license": "MIT",
-  "homepage": "https://github.com/Hub-yang/todo-scripts",
+  "homepage": "https://github.com/HuberyYang-Space/todo-scripts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Hub-yang/todo-scripts.git"
+    "url": "git+https://github.com/HuberyYang-Space/todo-scripts.git"
   },
   "bugs": {
-    "url": "https://github.com/Hub-yang/todo-scripts/issues"
+    "url": "https://github.com/HuberyYang-Space/todo-scripts/issues"
   },
   "keywords": [
     "scripts",
