@@ -19,6 +19,7 @@ const pmExecMock = vi.fn(async (_command: string, _options?: { allowFailure?: bo
 const isTsProjectMock = vi.fn(() => true)
 const isInteractiveMock = vi.fn(() => false)
 const printWarnMock = vi.fn()
+const printInfoMock = vi.fn()
 const writePackageJSONMock = vi.fn(async (_data: PackageJsonLike) => {})
 let pkgState: PackageJsonLike
 const getPackageJSONMock = vi.fn((): PackageJsonLike => pkgState)
@@ -28,6 +29,7 @@ vi.mock('@/utils', () => ({
   getPackageJSON: getPackageJSONMock,
   isInteractive: isInteractiveMock,
   isTsProject: isTsProjectMock,
+  printInfo: printInfoMock,
   printWarn: printWarnMock,
   writePackageJSON: writePackageJSONMock,
 }))
@@ -138,11 +140,11 @@ describe('commitlint-init init()', () => {
     expect(writeFile).toHaveBeenCalledWith('commitlint.config.js', expect.any(String))
   })
 
-  it('commitlint 配置文件已存在时应该跳过写入并给出警告', async () => {
+  it('commitlint 配置文件已存在时应该跳过写入并给出中性提示', async () => {
     vi.mocked(existsSync).mockImplementation(p => String(p).includes('commitlint.config'))
     await init({})
     expect(writeFile).not.toHaveBeenCalledWith(expect.stringContaining('commitlint.config'), expect.anything())
-    expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('already exists'))
+    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining('already exists'))
   })
 
   it('husky hooks 已存在时应该在保留用户原内容的基础上追加我们的命令', async () => {
@@ -178,18 +180,20 @@ describe('commitlint-init init()', () => {
     expect(writeFile).toHaveBeenCalledWith('lint-staged.config.mjs', expect.stringContaining('eslint-fix-command'))
   })
 
-  it('lint-staged.config.mjs 已存在时应该跳过写入并给出警告', async () => {
+  it('lint-staged.config.mjs 已存在时应该跳过写入并给出中性提示', async () => {
     vi.mocked(existsSync).mockImplementation(p => String(p).includes('lint-staged.config.mjs'))
     await init({})
     expect(writeFile).not.toHaveBeenCalledWith('lint-staged.config.mjs', expect.anything())
-    expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('lint-staged'))
+    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining('lint-staged'))
   })
 
-  it('package.json 已有内联 lint-staged 字段时应该跳过写入并给出警告，且不清理该字段', async () => {
+  it('package.json 已有内联 lint-staged 字段时应该跳过写入并给出中性提示，且不清理该字段', async () => {
     pkgState = { 'name': 'demo', 'lint-staged': { '*.ts': 'my-own-linter' } }
     await init({})
     expect(writeFile).not.toHaveBeenCalledWith('lint-staged.config.mjs', expect.anything())
-    expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('lint-staged'))
+    // 断言必须锚定到「沿用你的配置」这句本身：只匹配 'lint-staged' 会被
+    // resolveLinterChoice 那条无关警告（…skipping the lint-staged rule）撞上而假通过
+    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining('the package.json "lint-staged" field'))
     const written = writePackageJSONMock.mock.calls[0][0]
     expect(written['lint-staged']).toEqual({ '*.ts': 'my-own-linter' })
   })
@@ -368,5 +372,22 @@ describe('commitlint-init init()', () => {
       expect(detectLinterMock).toHaveBeenCalled()
       expect(pmExecMock).toHaveBeenCalledWith(expect.stringContaining('eslint'), { allowFailure: true })
     })
+  })
+})
+
+describe('提示分级', () => {
+  it('跳过已有配置应该是中性提示，不是警告', async () => {
+    // 「沿用你已有的配置」是正确结果而不是出错，用 WARN 渲染会让人以为哪里坏了
+    vi.mocked(existsSync).mockImplementation(p => String(p).includes('.commitlintrc.json'))
+    await init({})
+    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining('commitlint config'))
+    expect(printWarnMock).not.toHaveBeenCalledWith(expect.stringContaining('commitlint config'))
+  })
+
+  it('改动了用户的钩子文件仍然应该是警告', async () => {
+    vi.mocked(existsSync).mockImplementation(p => String(p).includes('.husky'))
+    vi.mocked(readFileSync).mockReturnValue('# 用户自己手写的钩子')
+    await init({})
+    expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('.husky/pre-commit'))
   })
 })

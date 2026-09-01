@@ -1,6 +1,6 @@
 import type { PackageManager } from '@/utils/package-manager'
 import { describe, expect, it } from 'vitest'
-import { COMMITLINT_CONFIG_FILES, createFileJournal, detectHuskyV4, findExistingConfig, LINT_STAGED_CONFIG_FILES, patchPackageJSON, planSetup, resolveConfigWrite, resolveHookContent, surveyProject } from '@/scripts/commitlint-init'
+import { COMMITLINT_CONFIG_FILES, createFileJournal, detectHuskyV4, findExistingConfig, LINT_STAGED_CONFIG_FILES, patchPackageJSON, planSetup, resolveHookContent, surveyProject } from '@/scripts/commitlint-init'
 
 // Pure function tests: no need to mock the filesystem, subprocess, or spinner
 const pm = {
@@ -268,54 +268,12 @@ describe('配置文件候选清单', () => {
   })
 })
 
-describe('resolveConfigWrite', () => {
-  const target = 'commitlint.config.ts'
-
-  it('没有任何已存在配置时应该写入', () => {
-    expect(resolveConfigWrite(undefined, target, false).write).toBe(true)
-  })
-
-  it('已存在配置且没有 --force 时应该跳过', () => {
-    expect(resolveConfigWrite('.commitlintrc.json', target, false).write).toBe(false)
-  })
-
-  it('--force 且已存在的就是我们要写的文件时应该覆盖', () => {
-    expect(resolveConfigWrite(target, target, true).write).toBe(true)
-  })
-
-  it('--force 但已存在的是另一种文件名时仍然应该跳过', () => {
-    // 覆盖不了 .commitlintrc.json，硬写 commitlint.config.ts 只会制造出两份打架的配置
-    const result = resolveConfigWrite('.commitlintrc.json', target, true)
-    expect(result.write).toBe(false)
-    expect(result.reason).toContain('.commitlintrc.json')
-  })
-
-  it('跳过时应该给出可读的原因', () => {
-    expect(resolveConfigWrite('.commitlintrc.json', target, false).reason).toBeTruthy()
-  })
-})
-
-describe('resolveHookContent 的 --force 行为', () => {
-  const command = 'pnpm exec lint-staged'
-
-  it('--force 时应该用我们的内容覆盖用户已有的钩子', () => {
-    const result = resolveHookContent('#!/bin/sh\necho mine\n', command, { force: true })
-    expect(result.content).toBe(command)
-    expect(result.action).toBe('replaced')
-  })
-
-  it('--force 对不存在的钩子仍然是新建', () => {
-    expect(resolveHookContent(undefined, command, { force: true }).action).toBe('created')
-  })
-})
-
 describe('surveyProject', () => {
   const plan = planSetup({}, { isTsProject: true, pm, linter: 'eslint' })
   const base = {
     exists: () => false,
     readHook: () => undefined,
     pkg: { name: 'demo' },
-    force: false,
   }
 
   it('干净工程应该需要 git init，且两份配置都要写', () => {
@@ -349,11 +307,6 @@ describe('surveyProject', () => {
   it('钩子已存在且不含我们的命令时应该规划为追加', () => {
     const survey = surveyProject(plan, { ...base, readHook: () => 'echo mine\n' })
     expect(survey.hooks.every(h => h.action === 'appended')).toBe(true)
-  })
-
-  it('--force 时钩子应该规划为覆盖', () => {
-    const survey = surveyProject(plan, { ...base, readHook: () => 'echo mine\n', force: true })
-    expect(survey.hooks.every(h => h.action === 'replaced')).toBe(true)
   })
 
   it('survey 只做判断，返回的钩子内容应该带上最终要写入的文本', () => {

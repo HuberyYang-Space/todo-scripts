@@ -29,7 +29,6 @@ describe('cLI 入口与错误路径', () => {
     expect(result.exitCode, result.all).toBe(0)
     expect(result.stdout).toContain('--czgit')
     expect(result.stdout).toContain('--linter')
-    expect(result.stdout).toContain('--force')
     expect(fixture.tree()).toEqual(before)
   })
 

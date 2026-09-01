@@ -7,7 +7,7 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 import yoctoSpinner from 'yocto-spinner'
 import { CONFIG_COMMITLINT, CONFIG_COMMITLINT_CZGIT } from '@/constants'
-import { execCommand, getPackageJSON, isInteractive, isTsProject, printWarn, writePackageJSON } from '@/utils'
+import { execCommand, getPackageJSON, isInteractive, isTsProject, printInfo, printWarn, writePackageJSON } from '@/utils'
 import { detectLinter, getFixCommand, isLinterInstalled, isLinterKind, renderLintStagedConfig } from '@/utils/linter'
 import { createPackageManager } from '@/utils/package-manager'
 import { promptLinterChoice } from '@/utils/prompt'
@@ -168,26 +168,9 @@ export function patchPackageJSON(pkg: PackageJsonLike, options: ArgvOptions): Pa
   return patched
 }
 
-/**
- * Decides whether to write one of the config files we generate — a pure function
- *
- * `--force` re-stamps our own template, so it only overwrites the exact file we
- * would have written. When the project's config lives under a different filename,
- * forcing a write would leave two rival configs behind — the very thing the
- * existence check is there to prevent.
- */
-export function resolveConfigWrite(
-  existing: string | undefined,
-  target: string,
-  force: boolean,
-): { write: boolean, reason?: string } {
-  if (existing === undefined)
-    return { write: true }
-  if (force && existing === target)
-    return { write: true }
-  if (force)
-    return { write: false, reason: `${existing} already exists and --force only overwrites ${target}; remove it by hand to take ours` }
-  return { write: false, reason: `${existing} already exists` }
+/** A config we would generate, or the reason we are leaving the project's own alone */
+function planConfigWrite(existing: string | undefined): { write: boolean, reason?: string } {
+  return existing ? { write: false, reason: `${existing} already exists` } : { write: true }
 }
 
 /**
@@ -201,14 +184,9 @@ export function resolveConfigWrite(
 export function resolveHookContent(
   original: string | undefined,
   command: string,
-  options: { force?: boolean } = {},
-): { content: string, action: 'created' | 'appended' | 'unchanged' | 'replaced' } {
+): { content: string, action: 'created' | 'appended' | 'unchanged' } {
   if (original === undefined)
     return { content: command, action: 'created' }
-
-  // --force re-stamps our own hook, discarding whatever was there
-  if (options.force)
-    return { content: command, action: 'replaced' }
 
   // Line-level exact match, not a substring test: `lint-staged-extra` is not our command
   if (original.split('\n').some(line => line.trim() === command))
@@ -271,15 +249,15 @@ export interface ProjectSurvey {
   huskyV4?: { source: string, hooks: Record<string, string> }
   commitlint: { write: boolean, reason?: string }
   lintStaged: { write: boolean, reason?: string }
-  hooks: { path: string, content: string, action: 'created' | 'appended' | 'unchanged' | 'replaced' }[]
+  hooks: { path: string, content: string, action: 'created' | 'appended' | 'unchanged' }[]
 }
 
 /**
  * Works out everything init() needs to decide, without changing anything
  *
- * Pure — the filesystem and package.json arrive through `env`. Both the real run
- * and `--dry-run` go through this, so the preview can never disagree with what
- * actually happens.
+ * Pure — the filesystem and package.json arrive through `env`. Keeping every
+ * decision here (rather than inline among the writes) is what makes them testable
+ * without a filesystem, and gives a future `doctor` command one place to reuse.
  *
  * Hook contents must be read here, i.e. before `husky init`: husky 9 overwrites
  * `.husky/pre-commit` unconditionally (no existence check in its source), so
@@ -291,7 +269,6 @@ export function surveyProject(
     exists: (file: string) => boolean
     readHook: (path: string) => string | undefined
     pkg: PackageJsonLike
-    force: boolean
   },
 ): ProjectSurvey {
   const existingCommitlint = findExistingConfig(COMMITLINT_CONFIG_FILES, env.exists)
@@ -302,10 +279,10 @@ export function surveyProject(
   return {
     needsGitInit: !env.exists('.git'),
     huskyV4: detectHuskyV4(env.exists, env.pkg),
-    commitlint: resolveConfigWrite(existingCommitlint, plan.configFile.name, env.force),
-    lintStaged: resolveConfigWrite(existingLintStaged, plan.lintStagedConfigFile.name, env.force),
+    commitlint: planConfigWrite(existingCommitlint),
+    lintStaged: planConfigWrite(existingLintStaged),
     hooks: plan.hooks.map((hook) => {
-      const { content, action } = resolveHookContent(env.readHook(hook.path), hook.content, { force: env.force })
+      const { content, action } = resolveHookContent(env.readHook(hook.path), hook.content)
       return { path: hook.path, content, action }
     }),
   }
@@ -345,18 +322,11 @@ export async function init(options: ArgvOptions) {
   const plan = planSetup(options, { isTsProject: isTsProject(), pm, linter: linterChoice })
 
   const cwd = process.cwd()
-  const force = Boolean(options.force)
   const survey = surveyProject(plan, {
     exists: file => existsSync(resolve(cwd, file)),
     readHook: hookPath => existsSync(resolve(cwd, hookPath)) ? readFileSync(resolve(cwd, hookPath), 'utf-8') : undefined,
     pkg: getPackageJSON(),
-    force,
   })
-
-  if (options['dry-run']) {
-    printDryRun(plan, survey, linterChoice)
-    return
-  }
 
   const journal = createFileJournal({
     exists: file => existsSync(resolve(cwd, file)),
@@ -410,7 +380,7 @@ async function runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice,
   const { name, content } = plan.configFile
   if (!survey.commitlint.write) {
     spinner.stop()
-    printWarn(`commitlint config skipped — ${survey.commitlint.reason}.`)
+    printInfo(`Kept your commitlint config — ${survey.commitlint.reason}.`)
   }
   else {
     journal.capture(name)
@@ -422,7 +392,7 @@ async function runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice,
   const { name: lintStagedName, content: lintStagedContent } = plan.lintStagedConfigFile
   if (!survey.lintStaged.write) {
     spinner.stop()
-    printWarn(`lint-staged config skipped — ${survey.lintStaged.reason}.`)
+    printInfo(`Kept your lint-staged config — ${survey.lintStaged.reason}.`)
   }
   else {
     journal.capture(lintStagedName)
@@ -441,9 +411,7 @@ async function runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice,
     if (hook.action === 'appended')
       printWarn(`${hook.path} already exists — appended our command to your version.`)
     else if (hook.action === 'unchanged')
-      printWarn(`${hook.path} already runs our command, left as is.`)
-    else if (hook.action === 'replaced')
-      printWarn(`${hook.path} overwritten with ours because of --force.`)
+      printInfo(`${hook.path} already runs our command, left as is.`)
   }
   spinner.success('husky config succeed!')
 
@@ -466,32 +434,4 @@ async function runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice,
     await pm.exec(getFixCommand(linterChoice, lintTargets), { allowFailure: true })
     spinner.success('lint down!')
   }
-}
-
-/** Prints what a real run would do, and does none of it */
-function printDryRun(plan: SetupPlan, survey: ProjectSurvey, linter: LinterKind | 'none') {
-  const verbs = {
-    created: 'create',
-    appended: 'append our command to',
-    unchanged: 'leave untouched (already runs our command)',
-    replaced: 'overwrite',
-  } as const
-
-  const steps = [
-    ...(survey.huskyV4 ? [`warn about leftover husky v4 config in ${survey.huskyV4.source}`] : []),
-    ...(survey.needsGitInit ? ['run `git init`'] : []),
-    `ensure dev dependencies: ${plan.packages.join(', ')}`,
-    survey.commitlint.write
-      ? `write ${plan.configFile.name}`
-      : `skip the commitlint config — ${survey.commitlint.reason}`,
-    survey.lintStaged.write
-      ? `write ${plan.lintStagedConfigFile.name}`
-      : `skip the lint-staged config — ${survey.lintStaged.reason}`,
-    'run `husky init`',
-    ...survey.hooks.map(hook => `${verbs[hook.action]} ${hook.path}`),
-    'add the commitlint script to package.json',
-    ...(linter === 'none' ? [] : [`run ${linter} over the generated files`]),
-  ]
-
-  console.log(`--dry-run: nothing was written. A real run would:\n${steps.map(step => `  - ${step}`).join('\n')}`)
 }

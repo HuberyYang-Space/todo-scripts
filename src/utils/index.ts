@@ -14,13 +14,11 @@ import { parse as parseYaml } from 'yaml'
 import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
 
 export interface ArgvOptions {
-  'clear'?: boolean
-  'czgit'?: boolean
-  'help'?: boolean
-  'version'?: boolean
-  'linter'?: string
-  'force'?: boolean
-  'dry-run'?: boolean
+  clear?: boolean
+  czgit?: boolean
+  help?: boolean
+  version?: boolean
+  linter?: string
 }
 
 export interface PackageJsonLike {
@@ -36,7 +34,7 @@ export interface PackageJsonLike {
   [key: string]: any
 }
 
-const { bold, dim, bgYellow, bgRed, isColorSupported } = colors
+const { bold, dim, bgYellow, bgRed, bgCyan, isColorSupported } = colors
 
 const BRAND_NAME = 'TODO-SCRIPT'
 const BANNER_FONT_NAME = 'todo-script-banner'
@@ -64,6 +62,19 @@ export class ScriptError extends Error {
 export function printWarn(msg: string) {
   console.log(' ')
   console.log(`${bgYellow(' WARN ')} ${msg}`)
+  console.log(' ')
+}
+
+/**
+ * Neutral notice, for outcomes that are correct rather than concerning
+ *
+ * Skipping a config the project already has is the tool working as intended, not
+ * a warning — rendering it in warning yellow reads as "something went wrong" and
+ * trains people to ignore the messages that do matter.
+ */
+export function printInfo(msg: string) {
+  console.log(' ')
+  console.log(`${bgCyan(' INFO ')} ${msg}`)
   console.log(' ')
 }
 

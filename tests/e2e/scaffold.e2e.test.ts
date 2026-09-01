@@ -72,7 +72,7 @@ describe('commitlint 配置文件', () => {
     assertOk(result, fixture)
 
     expect(fixture.read('commitlint.config.js')).toBe('// mine\n')
-    expect(result.stdout).toContain('commitlint config skipped')
+    expect(result.stdout).toContain('Kept your commitlint config')
   })
 })
 
@@ -227,7 +227,7 @@ describe('lint-staged 既有配置', () => {
     assertOk(result, fixture)
 
     expect(fixture.read(LINT_STAGED_FILE)).toBe('export default { \'*\': \'mine\' }\n')
-    expect(result.stdout).toContain('lint-staged config skipped')
+    expect(result.stdout).toContain('Kept your lint-staged config')
   })
 
   it('应该在 package.json 里存在遗留 lint-staged 字段时也跳过生成', async () => {
@@ -240,7 +240,7 @@ describe('lint-staged 既有配置', () => {
     assertOk(result, fixture)
 
     expect(fixture.exists(LINT_STAGED_FILE)).toBe(false)
-    expect(result.stdout).toContain('lint-staged config skipped')
+    expect(result.stdout).toContain('Kept your lint-staged config')
     // The legacy field must be left alone, not migrated or deleted
     expect(fixture.readJson<PackageJsonLike>('package.json')['lint-staged'])
       .toEqual({ '*.ts': 'my-own-linter' })

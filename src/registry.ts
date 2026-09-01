@@ -74,18 +74,6 @@ export const SCRIPTS: Script[] = [
         summaryEn: 'enable cz-git',
       },
       {
-        name: 'dry-run',
-        type: 'boolean',
-        summary: '只打印将要做的改动，不实际写入任何文件',
-        summaryEn: 'print what would change without writing anything',
-      },
-      {
-        name: 'force',
-        type: 'boolean',
-        summary: '覆盖重写本工具生成的配置文件与钩子（仅覆盖同名文件）',
-        summaryEn: 'overwrite the config files and hooks this tool generates (same filename only)',
-      },
-      {
         name: 'linter',
         type: 'string',
         placeholder: '<eslint|biome|oxlint|none>',

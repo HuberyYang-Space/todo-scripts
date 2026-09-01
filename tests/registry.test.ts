@@ -75,6 +75,14 @@ describe('flag 元数据', () => {
     expect(names).toContain('linter')
   })
 
+  it('不应该再暴露 --force / --dry-run', () => {
+    // 覆盖是这个工具唯一的破坏性操作，删掉文件重跑即可，不值得为它开一个开关；
+    // 预演的信息默认输出已经全给了，真要「只看不改」那是 doctor 的职责
+    const names = findScript('commitlint-init')!.flags!.map(f => f.name)
+    expect(names).not.toContain('force')
+    expect(names).not.toContain('dry-run')
+  })
+
   it('linter 应该是 string 类型，否则裸 --linter 会被强转成布尔值', () => {
     const linter = findScript('commitlint-init')!.flags!.find(f => f.name === 'linter')
     expect(linter!.type).toBe('string')

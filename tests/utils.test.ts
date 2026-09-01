@@ -12,6 +12,7 @@ import {
   isRootFileExist,
   isTsProject,
   printErr,
+  printInfo,
   printWarn,
   resolveBannerMode,
   ScriptError,
@@ -347,5 +348,25 @@ describe('失败路径', () => {
     vi.mocked(execa).mockRejectedValue(new Error('boom'))
     await expect(execCommand('whatever')).rejects.toThrow()
     expect(exitSpy).not.toHaveBeenCalled()
+  })
+})
+
+// printInfo - 中性提示，用于「一切正常」的告知
+describe('printInfo', () => {
+  it('应该打印带 INFO 标记的消息', () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    printInfo('test info')
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('INFO'))
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('test info'))
+    spy.mockRestore()
+  })
+
+  it('不应该被渲染成 WARN', () => {
+    // 「已有配置，沿用你的」是正常结果而不是警告，用黄色 WARN 渲染会让人以为出错了
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    printInfo('test info')
+    const printed = spy.mock.calls.map(c => String(c[0])).join('')
+    expect(printed).not.toContain('WARN')
+    spy.mockRestore()
   })
 })

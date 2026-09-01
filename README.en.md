@@ -92,13 +92,21 @@ Global options (accepted by every command):
 
 - `--czgit` Configure [cz-git](https://github.com/Zhengqbbb/cz-git) support
 - `--linter=<eslint|biome|oxlint|none>` Specify which linter drives lint-staged, skipping auto-detection and the prompt
-- `--dry-run` Print what would change without writing anything. Worth running first against an existing project
-- `--force` Overwrite the config files and hooks this tool generates. Same filename only — if your config lives under a different name (say `.commitlintrc.json`), it will not write a second, competing config beside it
 
 > [!NOTE]
 > A mistyped option fails loudly instead of being silently ignored.
->
-> Re-running against an already-configured project is safe: existing config files are skipped (and you are told which one got in the way), existing git hooks get our command **appended** rather than replacing your content, and an existing commitizen setup is never deleted. If a run fails partway through, the files already written are rolled back rather than left behind.
+
+#### 🛡️ Running against an existing project
+
+**Re-running is safe, and needs no extra flags.** What the tool does:
+
+- **Existing config is kept.** Every filename commitlint and lint-staged recognise is scanned (`.commitlintrc*`, `commitlint.config.*`, `.lintstagedrc*`, `lint-staged.config.*`, plus the matching `package.json` fields). If any one of them is found, generation is skipped and the terminal tells you which — no second, competing config gets written.
+- **Existing git hooks are appended to, not overwritten.** If `.husky/pre-commit` already holds your own command, ours is added on a new line and yours is left intact. A hook that already runs our command is left alone.
+- **An existing commitizen setup is never deleted.** Omitting `--czgit` means "don't set cz-git up this time", not "remove what I already have".
+- **A failure partway through is rolled back.** Files written during the run are undone, so you never end up with dependencies installed but nothing configured. The dependency install and `git init` are not rolled back.
+- **Leftover husky v4 config is reported.** husky 9 no longer reads `.huskyrc*` and friends, so the tool tells you which hooks are not actually running.
+
+To regenerate a config, delete the file and run again.
 
 #### 🎉 Test
 

@@ -169,6 +169,16 @@ describe('未知参数校验', () => {
     expect(initMock).toHaveBeenCalledTimes(1)
   })
 
+  it('已移除的 --force 应该被当成未知参数报错', async () => {
+    process.argv = ['node', 'hubery', 'commitlint-init', '--force']
+    await expect(main()).rejects.toThrow(/force/)
+  })
+
+  it('已移除的 --dry-run 应该被当成未知参数报错', async () => {
+    process.argv = ['node', 'hubery', 'commitlint-init', '--dry-run']
+    await expect(main()).rejects.toThrow(/dry-run/)
+  })
+
   it('别名 -h 不应该被当成未知参数', async () => {
     process.argv = ['node', 'hubery', 'commitlint-init', '-h']
     await main()
