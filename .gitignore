@@ -96,3 +96,6 @@ spec.md
 
 # --- 本地隔离工作区 (Local isolated worktrees) ---
 .worktrees/
+
+# --- E2E 临时工程 (E2E fixtures; only used when E2E_TMP_ROOT points here) ---
+.e2e-tmp/

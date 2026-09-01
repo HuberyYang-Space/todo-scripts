@@ -1,18 +1,18 @@
 {
   "name": "@huberyyang/todo-scripts",
   "type": "module",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "packageManager": "pnpm@11.23.0",
   "description": "Some public executable scripts",
   "author": "HuberyYang",
   "license": "MIT",
-  "homepage": "https://github.com/Hub-yang/todo-scripts",
+  "homepage": "https://github.com/HuberyYang-Space/todo-scripts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Hub-yang/todo-scripts.git"
+    "url": "git+https://github.com/HuberyYang-Space/todo-scripts.git"
   },
   "bugs": {
-    "url": "https://github.com/Hub-yang/todo-scripts/issues"
+    "url": "https://github.com/HuberyYang-Space/todo-scripts/issues"
   },
   "keywords": [
     "scripts",
@@ -35,10 +35,12 @@
   "scripts": {
     "dev": "tsdown --watch",
     "build": "tsdown",
-    "build:prod": "nr typecheck && nr lint:fix && nr test && tsdown",
+    "build:prod": "nr typecheck && nr lint:fix && nr test && tsdown && nr test:e2e",
     "preview": "nr build && node bin/index.js commitlint-init",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:e2e:watch": "vitest --config vitest.e2e.config.ts",
     "typecheck": "tsc",
     "lint": "eslint .",
     "lint:fix": "eslint --fix",
