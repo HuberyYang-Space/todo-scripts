@@ -72,7 +72,7 @@ describe('commitlint 配置文件', () => {
     assertOk(result, fixture)
 
     expect(fixture.read('commitlint.config.js')).toBe('// mine\n')
-    expect(result.stdout).toContain('already exists, skipped.')
+    expect(result.stdout).toContain('commitlint config already exists')
   })
 })
 
@@ -126,19 +126,21 @@ describe('husky 钩子', () => {
     expect(fixture.read('.husky/pre-commit')).toBe('npx --no -- lint-staged')
   })
 
-  it('应该保留用户已有的 husky 钩子内容', async () => {
+  it('应该保留用户已有的 husky 钩子内容并追加我们的命令', async () => {
     const fixture = await useFixture({
       linters: ['eslint'],
       files: { '.husky/pre-commit': 'echo mine\n' },
     })
 
-    const result = await runCli(fixture, ['commitlint-init'])
+    const result = await runCli(fixture, ['commitlint-init'], { packageManager: 'npm' })
     assertOk(result, fixture)
 
-    // husky 9's init unconditionally overwrites .husky/pre-commit, so this only
-    // passes because the content is snapshotted BEFORE husky init runs
-    expect(fixture.read('.husky/pre-commit')).toBe('echo mine\n')
-    expect(result.stdout).toContain('.husky/pre-commit already exists, kept your version.')
+    // husky 9's init unconditionally overwrites .husky/pre-commit, so the user's line
+    // surviving proves the content was snapshotted BEFORE husky init ran; our command
+    // being there too proves we append rather than just restoring — restoring alone
+    // left lint-staged wired to nothing.
+    expect(fixture.read('.husky/pre-commit')).toBe('echo mine\nnpx --no -- lint-staged\n')
+    expect(result.stdout).toContain('.husky/pre-commit already exists')
   })
 })
 
@@ -194,7 +196,8 @@ describe('--czgit', () => {
     expect(fixture.read('commitlint.config.js')).toContain('prompt')
   })
 
-  it('应该在不带 --czgit 时移除已有的 commitizen 配置但保留同级其他字段', async () => {
+  it('不带 --czgit 时应该原样保留已有的 commitizen 配置和同级其他字段', async () => {
+    // 不传 --czgit 表达的是「这次不配 czgit」，不是「删掉我已有的 commitizen」
     const fixture = await useFixture({
       linters: ['eslint'],
       packageJson: {
@@ -207,9 +210,9 @@ describe('--czgit', () => {
     assertOk(result, fixture)
 
     const pkg = fixture.readJson<PackageJsonLike>('package.json')
-    expect(pkg.config?.commitizen).toBeUndefined()
+    expect(pkg.config?.commitizen).toEqual({ path: 'node_modules/cz-git' })
     expect(pkg.config?.other).toBe('keep-me')
-    expect(pkg.scripts?.cz).toBeUndefined()
+    expect(pkg.scripts?.cz).toBe('git cz')
   })
 })
 
@@ -224,7 +227,7 @@ describe('lint-staged 既有配置', () => {
     assertOk(result, fixture)
 
     expect(fixture.read(LINT_STAGED_FILE)).toBe('export default { \'*\': \'mine\' }\n')
-    expect(result.stdout).toContain('lint-staged config already exists, skipped.')
+    expect(result.stdout).toContain('lint-staged config already exists')
   })
 
   it('应该在 package.json 里存在遗留 lint-staged 字段时也跳过生成', async () => {
@@ -237,7 +240,7 @@ describe('lint-staged 既有配置', () => {
     assertOk(result, fixture)
 
     expect(fixture.exists(LINT_STAGED_FILE)).toBe(false)
-    expect(result.stdout).toContain('lint-staged config already exists, skipped.')
+    expect(result.stdout).toContain('lint-staged config already exists')
     // The legacy field must be left alone, not migrated or deleted
     expect(fixture.readJson<PackageJsonLike>('package.json')['lint-staged'])
       .toEqual({ '*.ts': 'my-own-linter' })

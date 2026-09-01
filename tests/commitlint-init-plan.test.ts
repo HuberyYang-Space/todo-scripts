@@ -1,6 +1,6 @@
 import type { PackageManager } from '@/utils/package-manager'
 import { describe, expect, it } from 'vitest'
-import { patchPackageJSON, planSetup } from '@/scripts/commitlint-init'
+import { COMMITLINT_CONFIG_FILES, findExistingConfig, LINT_STAGED_CONFIG_FILES, patchPackageJSON, planSetup, resolveHookContent } from '@/scripts/commitlint-init'
 
 // Pure function tests: no need to mock the filesystem, subprocess, or spinner
 const pm = {
@@ -146,17 +146,19 @@ describe('patchPackageJSON', () => {
     expect(result.config!.commitizen).toEqual({ path: 'node_modules/cz-git' })
   })
 
-  it('非 czgit 时应该清理已有的 commitizen 配置和 cz 脚本', () => {
+  it('非 czgit 时不应该删除用户已有的 commitizen 配置和 cz 脚本', () => {
+    // 不传 --czgit 表达的是「这次不配 czgit」，不是「请移除我的 commitizen」。
+    // 用户的适配器也未必是 cz-git，删掉等于破坏一个本工具没参与配置的功能。
     const result = patchPackageJSON(
       {
         name: 'demo',
         scripts: { cz: 'git cz' },
-        config: { commitizen: { path: 'node_modules/cz-git' } },
+        config: { commitizen: { path: 'node_modules/cz-conventional-changelog' } },
       },
       {},
     )
-    expect(result.config!.commitizen).toBeUndefined()
-    expect(result.scripts!.cz).toBeUndefined()
+    expect(result.config!.commitizen).toEqual({ path: 'node_modules/cz-conventional-changelog' })
+    expect(result.scripts!.cz).toBe('git cz')
   })
 
   it('非 czgit 时应该保留 config 下的其他字段', () => {
@@ -165,5 +167,103 @@ describe('patchPackageJSON', () => {
       {},
     )
     expect(result.config!.other).toBe('keep')
+  })
+})
+
+describe('resolveHookContent', () => {
+  const command = 'pnpm exec lint-staged'
+
+  it('钩子不存在时应该直接写入命令', () => {
+    expect(resolveHookContent(undefined, command)).toEqual({
+      content: command,
+      action: 'created',
+    })
+  })
+
+  it('已有钩子不含该命令时应该追加而不是替换', () => {
+    // 这是核心回归点：原来的实现把用户内容原样写回，导致 lint-staged 永远不会被触发
+    const original = '#!/bin/sh\necho "my own check"\n'
+    expect(resolveHookContent(original, command)).toEqual({
+      content: `#!/bin/sh\necho "my own check"\n${command}\n`,
+      action: 'appended',
+    })
+  })
+
+  it('已有钩子缺末尾换行时追加前应该补上换行', () => {
+    expect(resolveHookContent('echo hi', command)).toEqual({
+      content: `echo hi\n${command}\n`,
+      action: 'appended',
+    })
+  })
+
+  it('已有钩子已经含该命令时应该原样保留', () => {
+    const original = `#!/bin/sh\n${command}\n`
+    expect(resolveHookContent(original, command)).toEqual({
+      content: original,
+      action: 'unchanged',
+    })
+  })
+
+  it('比对命令时应该忽略行首尾空白', () => {
+    const original = `#!/bin/sh\n  ${command}  \n`
+    expect(resolveHookContent(original, command).action).toBe('unchanged')
+  })
+
+  it('命令只是某行的子串时不算已存在，应该追加', () => {
+    // `pnpm exec lint-staged-extra` 不是我们要的命令，不能因为子串匹配就跳过
+    const original = `#!/bin/sh\n${command}-extra\n`
+    expect(resolveHookContent(original, command).action).toBe('appended')
+  })
+})
+
+describe('findExistingConfig', () => {
+  it('一个候选都不存在时应该返回 undefined', () => {
+    expect(findExistingConfig(['a.js', 'b.js'], () => false)).toBeUndefined()
+  })
+
+  it('应该返回实际存在的那个候选文件名', () => {
+    expect(findExistingConfig(['a.js', 'b.js'], f => f === 'b.js')).toBe('b.js')
+  })
+
+  it('多个候选同时存在时应该返回候选顺序里的第一个', () => {
+    expect(findExistingConfig(['a.js', 'b.js'], () => true)).toBe('a.js')
+  })
+})
+
+describe('配置文件候选清单', () => {
+  it('commitlint 候选应该覆盖 rc 系与 config 系的各种扩展名', () => {
+    // 回归点：原来只检查自己要写的那个文件名，导致已有 .commitlintrc 的项目被写入第二份配置
+    for (const file of [
+      'commitlint.config.ts',
+      'commitlint.config.js',
+      'commitlint.config.cjs',
+      'commitlint.config.mjs',
+      '.commitlintrc',
+      '.commitlintrc.json',
+      '.commitlintrc.js',
+      '.commitlintrc.cjs',
+      '.commitlintrc.mjs',
+      '.commitlintrc.ts',
+      '.commitlintrc.yml',
+      '.commitlintrc.yaml',
+    ])
+      expect(COMMITLINT_CONFIG_FILES).toContain(file)
+  })
+
+  it('lint-staged 候选应该覆盖 rc 系与 config 系的各种扩展名', () => {
+    for (const file of [
+      'lint-staged.config.mjs',
+      'lint-staged.config.js',
+      'lint-staged.config.cjs',
+      'lint-staged.config.ts',
+      '.lintstagedrc',
+      '.lintstagedrc.json',
+      '.lintstagedrc.js',
+      '.lintstagedrc.cjs',
+      '.lintstagedrc.mjs',
+      '.lintstagedrc.yml',
+      '.lintstagedrc.yaml',
+    ])
+      expect(LINT_STAGED_CONFIG_FILES).toContain(file)
   })
 })

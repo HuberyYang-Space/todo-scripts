@@ -145,17 +145,29 @@ describe('commitlint-init init()', () => {
     expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('already exists'))
   })
 
-  it('husky hooks 已存在时应该保留用户原内容并给出警告', async () => {
-    // husky 9's init unconditionally overwrites .husky/pre-commit, so "do nothing"
-    // isn't an option here — the content read before init must be written back,
-    // otherwise the user's hook would be destroyed
+  it('husky hooks 已存在时应该在保留用户原内容的基础上追加我们的命令', async () => {
+    // husky 9's init unconditionally overwrites .husky/pre-commit, so the content read
+    // before init has to be written back. Writing back *only* that content, though, left
+    // our command out of the hook entirely — setup looked fine while lint-staged never ran.
     vi.mocked(existsSync).mockImplementation(p => String(p).includes('.husky'))
     vi.mocked(readFileSync).mockReturnValue('# 用户自己手写的钩子')
     await init({})
-    expect(writeFile).toHaveBeenCalledWith(expect.stringMatching(/\.husky[\\/]pre-commit$/), '# 用户自己手写的钩子')
-    expect(writeFile).toHaveBeenCalledWith(expect.stringMatching(/\.husky[\\/]commit-msg$/), '# 用户自己手写的钩子')
-    // Must not be overwritten with our own hook content
-    expect(writeFile).not.toHaveBeenCalledWith(expect.stringMatching(/\.husky[\\/]pre-commit$/), expect.stringContaining('lint-staged'))
+    expect(writeFile).toHaveBeenCalledWith(
+      expect.stringMatching(/\.husky[\\/]pre-commit$/),
+      expect.stringContaining('# 用户自己手写的钩子'),
+    )
+    expect(writeFile).toHaveBeenCalledWith(
+      expect.stringMatching(/\.husky[\\/]pre-commit$/),
+      expect.stringContaining('lint-staged'),
+    )
+    expect(writeFile).toHaveBeenCalledWith(
+      expect.stringMatching(/\.husky[\\/]commit-msg$/),
+      expect.stringContaining('# 用户自己手写的钩子'),
+    )
+    expect(writeFile).toHaveBeenCalledWith(
+      expect.stringMatching(/\.husky[\\/]commit-msg$/),
+      expect.stringContaining('commitlint --edit'),
+    )
     expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('.husky/pre-commit'))
     expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('.husky/commit-msg'))
   })
@@ -223,7 +235,8 @@ describe('commitlint-init init()', () => {
     expect(written.scripts!.cz).toBe('git cz')
   })
 
-  it('非 czgit 时应该清理已有的 commitizen 配置和 cz 脚本', async () => {
+  it('非 czgit 时不应该删除用户已有的 commitizen 配置和 cz 脚本', async () => {
+    // 不传 --czgit 意味着「这次不配 czgit」，而不是「删掉我已有的 commitizen」
     pkgState = {
       name: 'demo',
       scripts: { cz: 'git cz' },
@@ -231,8 +244,8 @@ describe('commitlint-init init()', () => {
     }
     await init({})
     const written = writePackageJSONMock.mock.calls[0][0]
-    expect(written.config!.commitizen).toBeUndefined()
-    expect(written.scripts!.cz).toBeUndefined()
+    expect(written.config!.commitizen).toEqual({ path: 'node_modules/cz-git' })
+    expect(written.scripts!.cz).toBe('git cz')
   })
 
   it('检测到 eslint 时应该直接执行本地 eslint，且允许失败', async () => {

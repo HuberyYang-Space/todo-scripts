@@ -29,6 +29,53 @@ export interface SetupPlan {
 }
 
 /**
+ * Every filename commitlint picks up, in cosmiconfig's own search order
+ *
+ * Checking only the one file we are about to write would miss an existing
+ * `.commitlintrc` (or a `.cjs` variant) and leave the project with two competing
+ * configs, one of which silently loses.
+ */
+export const COMMITLINT_CONFIG_FILES = [
+  'commitlint.config.ts',
+  'commitlint.config.js',
+  'commitlint.config.cjs',
+  'commitlint.config.mjs',
+  '.commitlintrc',
+  '.commitlintrc.json',
+  '.commitlintrc.js',
+  '.commitlintrc.cjs',
+  '.commitlintrc.mjs',
+  '.commitlintrc.ts',
+  '.commitlintrc.yml',
+  '.commitlintrc.yaml',
+]
+
+/** Same idea for lint-staged. The package.json `lint-staged` field is checked separately. */
+export const LINT_STAGED_CONFIG_FILES = [
+  'lint-staged.config.mjs',
+  'lint-staged.config.js',
+  'lint-staged.config.cjs',
+  'lint-staged.config.ts',
+  '.lintstagedrc',
+  '.lintstagedrc.json',
+  '.lintstagedrc.js',
+  '.lintstagedrc.cjs',
+  '.lintstagedrc.mjs',
+  '.lintstagedrc.yml',
+  '.lintstagedrc.yaml',
+]
+
+/**
+ * Returns the first candidate that exists — a pure function, existence is injected
+ */
+export function findExistingConfig(
+  candidates: string[],
+  exists: (file: string) => boolean,
+): string | undefined {
+  return candidates.find(file => exists(file))
+}
+
+/**
  * Decides what to generate — a pure function that never touches the filesystem or runs commands
  *
  * This only covers decisions that can be computed up front. Whether a husky hook
@@ -70,6 +117,9 @@ export function patchPackageJSON(pkg: PackageJsonLike, options: ArgvOptions): Pa
     scripts,
   }
 
+  // Only ever adds czgit wiring, never removes it. Omitting --czgit means "don't set
+  // czgit up this time", not "delete the commitizen setup I already have" — and the
+  // user's adapter may not even be cz-git.
   if (options.czgit) {
     scripts.cz = 'git cz'
     // Merge one level deeper instead of overwriting: cz-git's config lives under
@@ -80,15 +130,31 @@ export function patchPackageJSON(pkg: PackageJsonLike, options: ArgvOptions): Pa
       commitizen: { ...pkg.config?.commitizen, path: 'node_modules/cz-git' },
     }
   }
-  else {
-    delete scripts.cz
-    if (pkg.config) {
-      const { commitizen: _commitizen, ...rest } = pkg.config
-      patched.config = rest
-    }
-  }
 
   return patched
+}
+
+/**
+ * Decides what a hook file should end up containing — a pure function
+ *
+ * husky 9's init unconditionally overwrites `.husky/pre-commit`, so init() has to
+ * snapshot the user's original content first. Writing that snapshot straight back
+ * would leave our command out of the hook entirely: setup reports success while
+ * lint-staged never actually runs on commit. So append instead of replacing.
+ */
+export function resolveHookContent(
+  original: string | undefined,
+  command: string,
+): { content: string, action: 'created' | 'appended' | 'unchanged' } {
+  if (original === undefined)
+    return { content: command, action: 'created' }
+
+  // Line-level exact match, not a substring test: `lint-staged-extra` is not our command
+  if (original.split('\n').some(line => line.trim() === command))
+    return { content: original, action: 'unchanged' }
+
+  const separator = original.endsWith('\n') ? '' : '\n'
+  return { content: `${original}${separator}${command}\n`, action: 'appended' }
 }
 
 /**
@@ -156,9 +222,13 @@ export async function init(options: ArgvOptions) {
 
   spinner.start('commitlint config running...')
   const { name, content } = plan.configFile
-  if (existsSync(resolve(cwd, name))) {
+  // Scan every filename commitlint understands, not just the one we would write —
+  // otherwise a project with `.commitlintrc.json` ends up with two rival configs
+  const existingCommitlintConfig = findExistingConfig(COMMITLINT_CONFIG_FILES, file => existsSync(resolve(cwd, file)))
+    ?? (getPackageJSON().commitlint ? 'the package.json "commitlint" field' : undefined)
+  if (existingCommitlintConfig) {
     spinner.stop()
-    printWarn(`${name} already exists, skipped.`)
+    printWarn(`commitlint config already exists (${existingCommitlintConfig}), skipped.`)
   }
   else {
     await w(name, content)
@@ -168,11 +238,13 @@ export async function init(options: ArgvOptions) {
   spinner.start('lint-staged config running...')
   const { name: lintStagedName, content: lintStagedContent } = plan.lintStagedConfigFile
   let lintStagedFilePresent = existsSync(resolve(cwd, lintStagedName))
-  // Either a standalone config file already exists, or package.json still carries the
-  // legacy inline field — both count as an existing user config, so don't overwrite
-  if (lintStagedFilePresent || getPackageJSON()['lint-staged']) {
+  // Any of lint-staged's own config filenames counts, plus the legacy inline
+  // package.json field — all of them are a user config we must not overwrite
+  const existingLintStagedConfig = findExistingConfig(LINT_STAGED_CONFIG_FILES, file => existsSync(resolve(cwd, file)))
+    ?? (getPackageJSON()['lint-staged'] ? 'the package.json "lint-staged" field' : undefined)
+  if (existingLintStagedConfig) {
     spinner.stop()
-    printWarn(`lint-staged config already exists, skipped.`)
+    printWarn(`lint-staged config already exists (${existingLintStagedConfig}), skipped.`)
   }
   else {
     await w(lintStagedName, lintStagedContent)
@@ -184,11 +256,14 @@ export async function init(options: ArgvOptions) {
   const existingHooks = snapshotExistingHooks(cwd, plan.hooks)
   await pm.exec('husky init')
   for (const hook of plan.hooks) {
-    const original = existingHooks.get(hook.path)
-    // The user already had this hook: restore its content in case husky init overwrote it
-    await w(resolve(cwd, hook.path), original ?? hook.content)
-    if (original !== undefined)
-      printWarn(`${hook.path} already exists, kept your version.`)
+    // Restores the user's original content (husky init may have just clobbered it) and
+    // appends our command, so their hook keeps working and ours actually runs
+    const { content: hookContent, action } = resolveHookContent(existingHooks.get(hook.path), hook.content)
+    await w(resolve(cwd, hook.path), hookContent)
+    if (action === 'appended')
+      printWarn(`${hook.path} already exists — appended \`${hook.content}\` to your version.`)
+    else if (action === 'unchanged')
+      printWarn(`${hook.path} already runs \`${hook.content}\`, left as is.`)
   }
   spinner.success('husky config succeed!')
 
