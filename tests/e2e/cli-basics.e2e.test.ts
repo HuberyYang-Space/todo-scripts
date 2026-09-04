@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { runCli } from './helpers/cli'
-import { MESSAGES } from './helpers/constants'
+import { MESSAGE_FOR, MESSAGES } from './helpers/constants'
 import { useFixture } from './helpers/fixture'
 
 describe('cLI 入口与错误路径', () => {
@@ -39,7 +39,9 @@ describe('cLI 入口与错误路径', () => {
     const result = await runCli(fixture, ['commitlint-init', '--czgti'])
 
     expect(result.exitCode).not.toBe(0)
-    expect(result.stdout).toContain('czgti')
+    // 整句断言：拼错的 flag 名会原样出现在别处（比如回显命令行），
+    // 只找 'czgti' 三个字并不能证明走的是「未知参数」这条分支
+    expect(result.stdout).toContain(MESSAGE_FOR.unknownOption('czgti'))
     expect(fixture.tree()).toEqual(before)
   })
 

@@ -2,7 +2,7 @@ import type { PackageJsonLike } from './helpers/types'
 import { execa } from 'execa'
 import { describe, expect, it } from 'vitest'
 import { assertOk, runCli } from './helpers/cli'
-import { LINT_STAGED_FILE, MESSAGES } from './helpers/constants'
+import { LINT_STAGED_FILE, MESSAGE_FOR, MESSAGES, PKG_FIELD } from './helpers/constants'
 import { useFixture } from './helpers/fixture'
 
 /** Resolves a real package-manager binary's directory, for the PATH allowlist */
@@ -72,7 +72,7 @@ describe('commitlint 配置文件', () => {
     assertOk(result, fixture)
 
     expect(fixture.read('commitlint.config.js')).toBe('// mine\n')
-    expect(result.stdout).toContain('Kept your commitlint config')
+    expect(result.stdout).toContain(MESSAGE_FOR.keptCommitlint('commitlint.config.js'))
   })
 })
 
@@ -140,7 +140,7 @@ describe('husky 钩子', () => {
     // being there too proves we append rather than just restoring — restoring alone
     // left lint-staged wired to nothing.
     expect(fixture.read('.husky/pre-commit')).toBe('echo mine\nnpx --no -- lint-staged\n')
-    expect(result.stdout).toContain('.husky/pre-commit already exists')
+    expect(result.stdout).toContain(MESSAGE_FOR.hookAppended('.husky/pre-commit'))
   })
 })
 
@@ -227,7 +227,7 @@ describe('lint-staged 既有配置', () => {
     assertOk(result, fixture)
 
     expect(fixture.read(LINT_STAGED_FILE)).toBe('export default { \'*\': \'mine\' }\n')
-    expect(result.stdout).toContain('Kept your lint-staged config')
+    expect(result.stdout).toContain(MESSAGE_FOR.keptLintStaged(LINT_STAGED_FILE))
   })
 
   it('应该在 package.json 里存在遗留 lint-staged 字段时也跳过生成', async () => {
@@ -240,7 +240,9 @@ describe('lint-staged 既有配置', () => {
     assertOk(result, fixture)
 
     expect(fixture.exists(LINT_STAGED_FILE)).toBe(false)
-    expect(result.stdout).toContain('Kept your lint-staged config')
+    // The reason has to be asserted too: what separates this case from the one above
+    // is *why* the write was skipped, and both cases shared one prefix-only assertion
+    expect(result.stdout).toContain(MESSAGE_FOR.keptLintStaged(PKG_FIELD.lintStaged))
     // The legacy field must be left alone, not migrated or deleted
     expect(fixture.readJson<PackageJsonLike>('package.json')['lint-staged'])
       .toEqual({ '*.ts': 'my-own-linter' })
@@ -274,6 +276,17 @@ describe('整体行为', () => {
     expect(fixture.read(LINT_STAGED_FILE)).toBe(afterFirst.lintStaged)
     expect(fixture.read('commitlint.config.js')).toBe(afterFirst.commitlint)
     expect(fixture.read('.husky/pre-commit')).toBe(afterFirst.preCommit)
-    expect(second.stdout).toContain('already exists')
+
+    // Each of the four artefacts has to report being recognised on its own. A bare
+    // `already exists` used to stand in for all of them, and matched whichever one
+    // happened to print first — worse, the hooks never say "already exists" at all
+    // on a re-run (they go down the `unchanged` branch), so the single assertion
+    // that was meant to pin idempotency never covered the hooks it mattered most for.
+    expect(second.stdout).toContain(MESSAGE_FOR.keptCommitlint('commitlint.config.js'))
+    expect(second.stdout).toContain(MESSAGE_FOR.keptLintStaged(LINT_STAGED_FILE))
+    expect(second.stdout).toContain(MESSAGE_FOR.hookUnchanged('.husky/pre-commit'))
+    expect(second.stdout).toContain(MESSAGE_FOR.hookUnchanged('.husky/commit-msg'))
+    // Re-running must not re-append: the hooks are unchanged, never "appended to"
+    expect(second.stdout).not.toContain(MESSAGE_FOR.hookAppended('.husky/pre-commit'))
   })
 })

@@ -6,6 +6,34 @@ import {
   REPO_URL,
 } from '@/constants'
 
+/**
+ * The exact type list a config's `type-enum` rule declares
+ *
+ * Scoped to the rule body on purpose. Searching the whole template for `'test'`
+ * also hits the type's own description text, so a type deleted from the rule but
+ * still mentioned in prose would go unnoticed.
+ */
+function extractTypes(config: string): string[] {
+  const match = config.match(/'type-enum': \[2, 'always', \[([\s\S]*?)\]\]/)
+  const body = match?.[1] ?? ''
+  return [...body.matchAll(/'([a-z]+)'/g)].map(m => m[1]).sort()
+}
+
+/** Every commit type the two templates are expected to allow — no more, no less */
+const REQUIRED_TYPES = [
+  'feat',
+  'fix',
+  'docs',
+  'style',
+  'refactor',
+  'test',
+  'chore',
+  'perf',
+  'ci',
+  'build',
+  'revert',
+]
+
 // DEFAULT_PKG_NAME / REPO_URL - basic constants
 describe('基础常量', () => {
   it('default_PKG_NAME 应该是正确的包名', () => {
@@ -29,12 +57,11 @@ describe('config_COMMITLINT', () => {
     expect(CONFIG_COMMITLINT).toContain('@commitlint/config-conventional')
   })
 
-  it('应该包含必要的 commit 类型', () => {
-    // Verify all the common commit types are present in the config
-    const requiredTypes = ['feat', 'fix', 'docs', 'style', 'refactor', 'test', 'chore', 'perf', 'ci', 'build', 'revert']
-    for (const type of requiredTypes) {
-      expect(CONFIG_COMMITLINT).toContain(`'${type}'`)
-    }
+  it('应该包含必要的 commit 类型，且不多不少', () => {
+    // Set equality rather than eleven substring probes: the old form only proved
+    // each type appeared *somewhere* in the template, so a stray extra type in the
+    // rule — or a type matched only by its description text — still passed.
+    expect(extractTypes(CONFIG_COMMITLINT)).toEqual([...REQUIRED_TYPES].sort())
   })
 })
 
@@ -49,10 +76,13 @@ describe('config_COMMITLINT_CZGIT', () => {
   })
 
   it('应该包含 prompt 交互配置', () => {
-    // cz-git's core feature is interactive commits, which needs prompt config
-    expect(CONFIG_COMMITLINT_CZGIT).toContain('prompt')
-    expect(CONFIG_COMMITLINT_CZGIT).toContain('messages')
-    expect(CONFIG_COMMITLINT_CZGIT).toContain('types')
+    // cz-git's core feature is interactive commits, which needs prompt config.
+    // Assert the structural keys, not the bare words: 'prompt', 'messages' and
+    // 'types' all occur in the template's prose and comments too, so matching
+    // them alone would still pass with the config blocks deleted.
+    expect(CONFIG_COMMITLINT_CZGIT).toContain('prompt: {')
+    expect(CONFIG_COMMITLINT_CZGIT).toContain('messages: {')
+    expect(CONFIG_COMMITLINT_CZGIT).toContain('types: [')
   })
 
   it('应该包含中文提示信息', () => {
@@ -69,19 +99,15 @@ describe('config_COMMITLINT_CZGIT', () => {
 })
 
 describe('cONFIG_COMMITLINT 与 CONFIG_COMMITLINT_CZGIT 的 type-enum 应该一致', () => {
-  function extractTypes(config: string): string[] {
-    const match = config.match(/'type-enum': \[2, 'always', \[([\s\S]*?)\]\]/)
-    const body = match?.[1] ?? ''
-    return [...body.matchAll(/'([a-z]+)'/g)].map(m => m[1]).sort()
-  }
-
   it('两份配置的 type-enum 类型集合应该完全相同', () => {
     expect(extractTypes(CONFIG_COMMITLINT)).toEqual(extractTypes(CONFIG_COMMITLINT_CZGIT))
   })
 
   it('不应该包含非标准的 merge/update 类型', () => {
-    expect(CONFIG_COMMITLINT).not.toContain(`'merge'`)
-    expect(CONFIG_COMMITLINT).not.toContain(`'update'`)
+    // Checked against the rule body, not the whole file: the word could legitimately
+    // appear in a description without being an allowed type
+    expect(extractTypes(CONFIG_COMMITLINT)).not.toContain('merge')
+    expect(extractTypes(CONFIG_COMMITLINT)).not.toContain('update')
   })
 })
 

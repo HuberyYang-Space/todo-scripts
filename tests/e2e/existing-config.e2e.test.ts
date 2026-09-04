@@ -1,6 +1,7 @@
 import type { PackageJsonLike } from './helpers/types'
 import { describe, expect, it } from 'vitest'
 import { assertOk, runCli } from './helpers/cli'
+import { MESSAGES } from './helpers/constants'
 import { useFixture } from './helpers/fixture'
 
 /**
@@ -131,11 +132,14 @@ describe('失败回滚', () => {
     // 证明确实走到了写配置那一步、并且是被回滚掉的——否则本用例可能只是
     // 在更早的地方就失败了，那样它什么也没验证到
     // spinner 走 stderr，printWarn 走 stdout —— 两条断言必须各自挑对流
-    expect(result.stderr).toContain('commitlint config succeed')
-    expect(result.stdout).toContain('rolled back')
+    expect(result.stderr).toContain(MESSAGES.commitlintConfigDone)
+    expect(result.stdout).toContain(MESSAGES.rollbackDone)
     // ScriptError 一直带着 cause，但从前只打印 message，底层报错整个被丢掉，
     // 排障时只能看到「Failed to execute ...」这种没有信息量的一行
-    expect(result.stdout).toContain('Caused by')
+    expect(result.stdout).toContain(MESSAGES.causedBy)
+    // 光有「Caused by:」还不够——真正要钉住的是它后面接了底层报错的内容，
+    // 只断言标签的话，打印一个空 cause 也能通过
+    expect(result.stdout).toMatch(/Caused by: \S/)
     // 配置文件在 husky 那一步之前就写好了，失败后必须被撤销，
     // 否则项目会停在「有 commitlint 配置但没有钩子」的半配置状态
     expect(fixture.exists('commitlint.config.ts')).toBe(false)

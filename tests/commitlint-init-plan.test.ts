@@ -38,13 +38,15 @@ describe('planSetup', () => {
 
   it('--czgit 时配置文件内容应该带 prompt 交互配置', () => {
     const { content } = planSetup({ czgit: true }, { isTsProject: true, pm, linter: 'eslint' }).configFile
-    expect(content).toContain('prompt')
+    expect(content).toContain('prompt: {')
     expect(content).toContain('cz-git')
   })
 
   it('默认配置文件内容不应该带 prompt 交互配置', () => {
     const { content } = planSetup({}, { isTsProject: true, pm, linter: 'eslint' }).configFile
-    expect(content).not.toContain('prompt')
+    // 结构 key 而非裸词：默认模板哪天多一句带 prompt 的注释，
+    // 裸词版这条就会毫无理由地变红
+    expect(content).not.toContain('prompt: {')
   })
 
   it('钩子内容应该用包管理器的 exec 前缀渲染', () => {

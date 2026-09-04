@@ -190,7 +190,9 @@ describe('printWarn', () => {
     // The second call should contain the warning text
     const output = spy.mock.calls[1][0] as string
     expect(output).toContain('test warning')
-    expect(output).toContain('WARN')
+    // 断言带前后空格的色块标记本身，而不是裸的 'WARN'——后者是 'warning' 的子串，
+    // 消息文案一旦改成含 WARNING 的大写字样，这条断言就会在标记丢失时照样通过
+    expect(output).toContain(' WARN ')
     spy.mockRestore()
   })
 })
@@ -202,7 +204,7 @@ describe('printErr', () => {
     expect(spy).toHaveBeenCalledTimes(3)
     const output = spy.mock.calls[1][0] as string
     expect(output).toContain('test error')
-    expect(output).toContain('ERROR')
+    expect(output).toContain(' ERROR ')
     spy.mockRestore()
   })
 })
@@ -356,7 +358,7 @@ describe('printInfo', () => {
   it('应该打印带 INFO 标记的消息', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     printInfo('test info')
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('INFO'))
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining(' INFO '))
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('test info'))
     spy.mockRestore()
   })
@@ -366,7 +368,7 @@ describe('printInfo', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     printInfo('test info')
     const printed = spy.mock.calls.map(c => String(c[0])).join('')
-    expect(printed).not.toContain('WARN')
+    expect(printed).not.toContain(' WARN ')
     spy.mockRestore()
   })
 })

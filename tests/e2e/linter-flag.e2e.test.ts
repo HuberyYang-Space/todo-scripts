@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { assertOk, runCli } from './helpers/cli'
-import { LINT_STAGED_CONFIG, LINT_STAGED_FILE, MESSAGES } from './helpers/constants'
+import { LINT_STAGED_CONFIG, LINT_STAGED_FILE, MESSAGE_FOR, MESSAGES } from './helpers/constants'
 import { useFixture } from './helpers/fixture'
 
 describe('--linter 显式指定', () => {
@@ -59,8 +59,8 @@ describe('--linter 显式指定', () => {
     const result = await runCli(fixture, ['commitlint-init', '--linter=prettier'])
     assertOk(result, fixture)
 
-    expect(result.stdout).toContain(MESSAGES.unknownLinterPrefix)
-    expect(result.stdout).toContain('prettier')
+    // 整句断言：单独一个 'prettier' 在 stdout 里任何位置出现都算数
+    expect(result.stdout).toContain(MESSAGE_FOR.unknownLinter('prettier'))
     // Falls back to DETECTION, not straight to none
     expect(fixture.read(LINT_STAGED_FILE)).toBe(LINT_STAGED_CONFIG.biome)
   })
