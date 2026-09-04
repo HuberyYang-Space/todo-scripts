@@ -165,14 +165,14 @@ describe('getPackageJSON', () => {
     // Simulate the file-missing case: no longer returns undefined, so callers need no null check
     vi.spyOn(fs, 'existsSync').mockReturnValue(false)
     expect(() => getPackageJSON()).toThrow(ScriptError)
-    expect(() => getPackageJSON()).toThrow('Cannot find package.json')
+    expect(() => getPackageJSON()).toThrow('当前目录下找不到 package.json。')
     vi.restoreAllMocks()
   })
 
   it('当 package.json 内容非法时应该抛出 ScriptError', () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(true)
     vi.spyOn(fs, 'readFileSync').mockReturnValue('{ not json')
-    expect(() => getPackageJSON()).toThrow('Failed to parse package.json.')
+    expect(() => getPackageJSON()).toThrow('解析 package.json 失败。')
     vi.restoreAllMocks()
   })
 })
@@ -335,14 +335,14 @@ describe('失败路径', () => {
     await expect(execCommand('git init')).rejects.toThrow(ScriptError)
     // The original error is preserved via cause, so debugging doesn't lose the evidence
     await expect(execCommand('git init')).rejects.toMatchObject({
-      message: `Failed to execute 'git init'.`,
+      message: `执行 'git init' 失败。`,
       cause: raw,
     })
   })
 
   it('writePackageJSON 写入失败时应该抛出 ScriptError', async () => {
     vi.mocked(writeFile).mockRejectedValue(new Error('EACCES'))
-    await expect(writePackageJSON({ name: 'demo' })).rejects.toThrow('Failed to write in package.json.')
+    await expect(writePackageJSON({ name: 'demo' })).rejects.toThrow('写入 package.json 失败。')
   })
 
   it('这些失败都不应该调用 process.exit', async () => {

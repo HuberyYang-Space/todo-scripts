@@ -1,5 +1,6 @@
 import process from 'node:process'
 import yoctoSpinner from 'yocto-spinner'
+import { MSG_FOR } from '@/constants/messages'
 import { execCommand, hasDependency, isMonorepo, ScriptError } from '@/utils'
 
 export interface PkgInfo {
@@ -159,7 +160,7 @@ export function createPackageManager(): PackageManager {
       catch (e) {
         // Stop the spinner before throwing, otherwise the error message competes with the spinning line
         s.stop()
-        throw new ScriptError(`Failed to uninstall ${pkg}.`, { cause: e })
+        throw new ScriptError(MSG_FOR.uninstallFailed(pkg), { cause: e })
       }
     },
   }

@@ -170,7 +170,7 @@ describe('uninstall', () => {
     const pm = usePkgManager('npm/10.2.0 node/v20.10.0')
     vi.mocked(execa).mockRejectedValue(new Error('boom'))
     await expect(pm.uninstall('some-pkg')).rejects.toThrow(ScriptError)
-    await expect(pm.uninstall('some-pkg')).rejects.toThrow('Failed to uninstall some-pkg.')
+    await expect(pm.uninstall('some-pkg')).rejects.toThrow('卸载 some-pkg 失败。')
   })
 })
 

@@ -12,6 +12,7 @@ import colors from 'picocolors'
 import terminalLink from 'terminal-link'
 import { parse as parseYaml } from 'yaml'
 import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
+import { MSG, MSG_FOR } from '@/constants/messages'
 
 export interface ArgvOptions {
   clear?: boolean
@@ -179,7 +180,7 @@ export async function execCommand(command: string) {
     await execa(file, commandArguments)
   }
   catch (e) {
-    throw new ScriptError(`Failed to execute '${command}'.`, { cause: e })
+    throw new ScriptError(MSG_FOR.execFailed(command), { cause: e })
   }
 }
 
@@ -265,7 +266,7 @@ export function getPackageJSON(): PackageJsonLike {
   const cwd = process.cwd()
   const path = resolve(cwd, 'package.json')
   if (!isRootFileExist('package.json'))
-    throw new ScriptError('Cannot find package.json in the current directory.')
+    throw new ScriptError(MSG.cannotFindPackageJson)
 
   try {
     const raw = fs.readFileSync(path, 'utf-8')
@@ -273,7 +274,7 @@ export function getPackageJSON(): PackageJsonLike {
     return data
   }
   catch (e) {
-    throw new ScriptError('Failed to parse package.json.', { cause: e })
+    throw new ScriptError(MSG.parsePackageJsonFailed, { cause: e })
   }
 }
 
@@ -282,6 +283,6 @@ export async function writePackageJSON(data: PackageJsonLike) {
     await w('package.json', `${JSON.stringify(data, null, 2)}\n`)
   }
   catch (e) {
-    throw new ScriptError('Failed to write in package.json.', { cause: e })
+    throw new ScriptError(MSG.writePackageJsonFailed, { cause: e })
   }
 }
