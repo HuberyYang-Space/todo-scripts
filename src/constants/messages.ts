@@ -50,6 +50,11 @@ export const MSG = {
   spinnerPkgJsonDone: 'package.json 写入完成！',
   spinnerLintStart: '格式化生成的文件...',
   spinnerLintDone: '格式化完成！',
+
+  // —— 交互提示 ——
+  promptLinterMessage: '未检测到已知的 linter，用于 lint-staged 的检查工具是？',
+  promptLinterNone: '跳过 —— 我自己配置',
+  promptCancelledLabel: '已取消。',
 } as const
 
 /** 需要嵌入文件名 / 取值的文案 */
