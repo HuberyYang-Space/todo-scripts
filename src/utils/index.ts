@@ -105,7 +105,7 @@ export function getCliVersion(): string {
 
 /**
  * 当前是不是一个真正的交互式终端 —— 在 CI 里、或 stdin 不是 TTY 时
- *（管道输入、非交互的测试运行器）永远为 false
+ * （管道输入、非交互的测试运行器）永远为 false
  */
 export function isInteractive(): boolean {
   return Boolean(process.stdin.isTTY) && !process.env.CI

@@ -8,8 +8,8 @@ interface LinterSpec {
   bin: string
   fixFlag: string
   /**
-   * 让 linter 在 lint-staged 递给它一个不归它管的文件时不要报错
-   *（比如纯 eslint 项目里的 .vue 文件）
+   * 让 linter 在 lint-staged 递给它一个不归它管的文件时不要报错，
+   * 比如纯 eslint 项目里的 .vue 文件
    */
   noErrorOnUnmatchedFlag: string
 }
