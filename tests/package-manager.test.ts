@@ -9,8 +9,21 @@ vi.mock('execa', async importOriginal => ({
   ...await importOriginal<typeof import('execa')>(),
   execa: vi.fn(async () => {}),
 }))
+/** 记录 spinner 收到的文案，好断言卸载过程的提示确实换成了中文 */
+const spinnerText = vi.hoisted(() => ({
+  initial: [] as (string | undefined)[],
+  success: [] as (string | undefined)[],
+}))
+
 vi.mock('yocto-spinner', () => ({
-  default: () => ({ start: vi.fn(function (this: any) { return this }), success: vi.fn(), stop: vi.fn() }),
+  default: (options?: { text?: string }) => {
+    spinnerText.initial.push(options?.text)
+    return {
+      start: vi.fn(function (this: any) { return this }),
+      success: vi.fn((text?: string) => { spinnerText.success.push(text) }),
+      stop: vi.fn(),
+    }
+  },
 }))
 
 const originalUserAgent = process.env.npm_config_user_agent
@@ -164,6 +177,15 @@ describe('uninstall', () => {
     await pm.uninstall('some-pkg')
     const [file, ...commandArguments] = expected.split(' ')
     expect(execa).toHaveBeenCalledWith(file, commandArguments)
+  })
+
+  it('卸载过程的 spinner 文案应该是中文', async () => {
+    // 这两条文案走的是 yoctoSpinner({ text }) 和 s.success()，不是 spinner.start()，
+    // 一直没有任何断言盯着 —— 改错了也不会有人发现
+    const pm = usePkgManager('npm/10.2.0 node/v20.10.0')
+    await pm.uninstall('some-pkg')
+    expect(spinnerText.initial).toContain('正在卸载...')
+    expect(spinnerText.success).toContain('已卸载 some-pkg！')
   })
 
   it('卸载失败时应该抛出 ScriptError', async () => {

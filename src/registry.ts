@@ -2,32 +2,32 @@ import type { ArgvOptions } from '@/utils'
 import { green } from 'picocolors'
 
 export interface FlagSpec {
-  /** Long form, exactly as typed minus the leading `--` */
+  /** 长写法，就是敲进去的样子去掉开头的 `--` */
   name: string
   type: 'boolean' | 'string'
-  /** Single-letter form, minus the leading `-` */
+  /** 单字母写法，去掉开头的 `-` */
   alias?: string
-  /** Value placeholder rendered in help, e.g. `<eslint|biome>` */
+  /** 帮助文本里渲染的取值占位符，例如 `<eslint|biome>` */
   placeholder?: string
-  /** One-line description shown in help text */
+  /** 帮助文本里显示的一行说明 */
   summary: string
 }
 
 export interface Script {
-  /** Subcommand name, exactly what the user types on the command line */
+  /** 子命令名，就是用户在命令行敲的那个词 */
   name: string
-  /** One-line description shown in help text */
+  /** 帮助文本里显示的一行说明 */
   summary: string
-  /** Flags this subcommand accepts, on top of GLOBAL_FLAGS */
+  /** 这个子命令在 GLOBAL_FLAGS 之外还接受的参数 */
   flags?: FlagSpec[]
-  /** Lazily loads the script implementation */
+  /** 惰性加载脚本实现 */
   load: () => Promise<{ init: (options: ArgvOptions) => Promise<void> }>
 }
 
 /**
- * Flags accepted regardless of which subcommand runs
+ * 不管跑哪个子命令都接受的参数
  *
- * These are handled in main.ts, not inside any script.
+ * 它们在 main.ts 里处理，不在任何脚本内部。
  */
 export const GLOBAL_FLAGS: FlagSpec[] = [
   {
@@ -50,11 +50,10 @@ export const GLOBAL_FLAGS: FlagSpec[] = [
 ]
 
 /**
- * The single source of truth for all available subcommands
+ * 所有可用子命令的唯一事实来源
  *
- * Adding a new script only requires appending an entry here — help text renders
- * from it, dispatch looks it up, and the argv parser derives its boolean/string
- * lists from `flags`, so there's no second list to keep in sync by hand
+ * 加一个新脚本只需要在这里追加一项 —— 帮助文本由它渲染、分发靠它查找、
+ * argv 解析器从 `flags` 派生出 boolean/string 列表，没有第二份清单要手工同步
  */
 export const SCRIPTS: Script[] = [
   {
@@ -81,7 +80,7 @@ export function findScript(name: string | undefined): Script | undefined {
   return SCRIPTS.find(script => script.name === name)
 }
 
-/** Every spelling a set of flags can be typed as — long forms plus aliases */
+/** 一组参数所有能被敲出来的写法 —— 长写法加别名 */
 export function collectFlagNames(flags: FlagSpec[]): Set<string> {
   const names = new Set<string>()
   for (const flag of flags) {
@@ -92,7 +91,7 @@ export function collectFlagNames(flags: FlagSpec[]): Set<string> {
   return names
 }
 
-/** `-h, --linter=<...>` style label, padded so descriptions line up */
+/** `-h, --linter=<...>` 这种标签，右侧补空格让描述对齐 */
 function renderFlagLines(flags: FlagSpec[]): string {
   return flags
     .map((flag) => {
@@ -104,12 +103,11 @@ function renderFlagLines(flags: FlagSpec[]): string {
 }
 
 /**
- * Renders the top-level help text
+ * 渲染顶层帮助文本
  *
- * The available-commands section derives from SCRIPTS, so it can't drift from
- * what's actually supported. Per-command flags deliberately live in
- * `renderScriptHelp` instead — listing every subcommand's flags here would make
- * this unreadable as soon as there is more than one command.
+ * 可用指令一节由 SCRIPTS 派生，不会和实际支持的指令走散。各指令自己的参数
+ * 刻意放在 `renderScriptHelp` 里 —— 一旦指令多于一个，把所有子命令的参数
+ * 都堆在这里会让它没法读。
  */
 export function renderHelp(): string {
   const commands = SCRIPTS
@@ -132,7 +130,7 @@ ${renderFlagLines(GLOBAL_FLAGS)}
 `
 }
 
-/** Renders the help text for one subcommand, including the global flags */
+/** 渲染单个子命令的帮助文本，含全局参数 */
 export function renderScriptHelp(script: Script): string {
   const own = script.flags?.length
     ? `参数：\n${renderFlagLines(script.flags)}\n\n`

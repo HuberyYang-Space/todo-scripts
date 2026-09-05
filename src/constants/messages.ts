@@ -55,6 +55,9 @@ export const MSG = {
   promptLinterMessage: '未检测到已知的 linter，用于 lint-staged 的检查工具是？',
   promptLinterNone: '跳过 —— 我自己配置',
   promptCancelledLabel: '已取消。',
+
+  // —— 包管理器 ——
+  spinnerUninstallStart: '正在卸载...',
 } as const
 
 /** 需要嵌入文件名 / 取值的文案 */
@@ -77,4 +80,5 @@ export const MSG_FOR = {
   huskyV4Found: (source: string, detail: string) =>
     `在 ${source} 发现 husky v4 配置，husky 9 不会读取它 —— 这些钩子实际没有在跑。${detail} 请把它们迁移到 .husky/ 目录后删除旧配置。`,
   huskyV4Detail: (pairs: string) => ` 其中定义了：${pairs}。`,
+  uninstallDone: (pkg: string) => `已卸载 ${pkg}！`,
 } as const

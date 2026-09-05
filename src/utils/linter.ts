@@ -3,13 +3,13 @@ import { hasDependency } from '@/utils'
 export type LinterKind = 'eslint' | 'biome' | 'oxlint'
 
 interface LinterSpec {
-  /** npm package name(s) that indicate this linter is installed */
+  /** 用来判定这个 linter 是否已安装的 npm 包名 */
   packages: string[]
   bin: string
   fixFlag: string
   /**
-   * stops the linter erroring when lint-staged hands it a file it doesn't own
-   * (e.g. a .vue file under a plain eslint project)
+   * 让 linter 在 lint-staged 递给它一个不归它管的文件时不要报错
+   *（比如纯 eslint 项目里的 .vue 文件）
    */
   noErrorOnUnmatchedFlag: string
 }
