@@ -6,7 +6,6 @@ describe('sCRIPTS 清单', () => {
     for (const script of SCRIPTS) {
       expect(script.name).toBeTruthy()
       expect(script.summary).toBeTruthy()
-      expect(script.summaryEn).toBeTruthy()
     }
   })
 
@@ -65,7 +64,6 @@ describe('flag 元数据', () => {
       expect(flag.name).toBeTruthy()
       expect(['boolean', 'string']).toContain(flag.type)
       expect(flag.summary).toBeTruthy()
-      expect(flag.summaryEn).toBeTruthy()
     }
   })
 
@@ -90,8 +88,8 @@ describe('flag 元数据', () => {
 
   it('collectFlagNames 应该同时收集长名和短名', () => {
     const names = collectFlagNames([
-      { name: 'help', type: 'boolean', alias: 'h', summary: '', summaryEn: '' },
-      { name: 'linter', type: 'string', summary: '', summaryEn: '' },
+      { name: 'help', type: 'boolean', alias: 'h', summary: '' },
+      { name: 'linter', type: 'string', summary: '' },
     ])
     expect(names).toEqual(new Set(['help', 'h', 'linter']))
   })

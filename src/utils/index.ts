@@ -12,6 +12,7 @@ import colors from 'picocolors'
 import terminalLink from 'terminal-link'
 import { parse as parseYaml } from 'yaml'
 import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
+import { MSG, MSG_FOR } from '@/constants/messages'
 
 export interface ArgvOptions {
   clear?: boolean
@@ -27,7 +28,7 @@ export interface PackageJsonLike {
   'devDependencies'?: Record<string, string>
   'lint-staged'?: Record<string, string>
   'config'?: {
-    // cz-git also supports alias / messages / types / scopes etc. alongside path
+    // cz-git 的 config.commitizen 下除了 path，还支持 alias / messages / types / scopes 等
     commitizen?: { path: string, [key: string]: any }
     [key: string]: any
   }
@@ -38,19 +39,18 @@ const { bold, dim, bgYellow, bgRed, bgCyan, isColorSupported } = colors
 
 const BRAND_NAME = 'TODO-SCRIPT'
 const BANNER_FONT_NAME = 'todo-script-banner'
-/** figlet's 'ANSI Shadow' font renders "TODO-SCRIPT" at a measured 85 columns wide; this leaves a safety margin */
+/** figlet 的 'ANSI Shadow' 字体渲染 "TODO-SCRIPT" 实测占 85 列宽，这里留一点余量 */
 const BANNER_MIN_WIDTH = 90
 const BANNER_GRADIENT_COLORS = ['#00c6ff', '#a34dff']
 
 let isBannerFontRegistered = false
 
 /**
- * An expected failure during script execution
+ * 脚本执行过程中预期之内的失败
  *
- * Leaf functions only throw it — they never print or terminate the process;
- * that all happens in bin/index.js, the only place that calls process.exit.
- * Any error that isn't a ScriptError is treated as a real bug and left to
- * node's own full stack trace.
+ * 叶子函数只负责抛出它，从不打印、也不终止进程 —— 那些都发生在 bin/index.js，
+ * 那里是唯一调用 process.exit 的地方。不是 ScriptError 的错误一律当成真正的
+ * bug，交给 node 打完整堆栈。
  */
 export class ScriptError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -66,11 +66,10 @@ export function printWarn(msg: string) {
 }
 
 /**
- * Neutral notice, for outcomes that are correct rather than concerning
+ * 中性提示，用于「结果正确」而非「需要担心」的情况
  *
- * Skipping a config the project already has is the tool working as intended, not
- * a warning — rendering it in warning yellow reads as "something went wrong" and
- * trains people to ignore the messages that do matter.
+ * 跳过项目已有的配置是这个工具在正常工作，不是警告 —— 用警告黄渲染会让人读成
+ * 「哪里出错了」，久而久之就学会了无视真正要紧的那些消息。
  */
 export function printInfo(msg: string) {
   console.log(' ')
@@ -85,12 +84,11 @@ export function printErr(msg: string) {
 }
 
 /**
- * Decides whether the banner renders as a gradient wordmark or plain text,
- * based on terminal width and rendering capability
+ * 根据终端宽度和渲染能力，决定 banner 用渐变字标还是纯文本
  *
- * Pure function that never touches process.stdout, so this decision logic stays unit-testable
- * @param columns - the terminal's available column width
- * @param canRenderGradient - true only when stdout is a real TTY that supports color
+ * 纯函数，从不碰 process.stdout，好让这段判断逻辑可以被单测覆盖
+ * @param columns - 终端可用的列宽
+ * @param canRenderGradient - 只有 stdout 是支持颜色的真实 TTY 时才为 true
  */
 export function resolveBannerMode(columns: number, canRenderGradient: boolean): 'gradient' | 'plain' {
   if (!canRenderGradient)
@@ -100,24 +98,23 @@ export function resolveBannerMode(columns: number, canRenderGradient: boolean): 
   return 'gradient'
 }
 
-/**
- * Whether this is a real interactive terminal — never true in CI or when
- * stdin isn't a TTY (piped input, non-interactive test runners)
- */
-/** This CLI's own version, straight from its package.json */
+/** 这个 CLI 自己的版本号，直接取自它自己的 package.json */
 export function getCliVersion(): string {
   return getPkgInfo().version ?? 'unknown'
 }
 
+/**
+ * 当前是不是一个真正的交互式终端 —— 在 CI 里、或 stdin 不是 TTY 时
+ * （管道输入、非交互的测试运行器）永远为 false
+ */
 export function isInteractive(): boolean {
   return Boolean(process.stdin.isTTY) && !process.env.CI
 }
 
 /**
- * Only renders the gradient wordmark when stdout is a real TTY, supports color,
- * and is wide enough. picocolors alone isn't sufficient on win32 — it reports
- * color support without checking TTY-ness — so isTTY is checked explicitly here
- * rather than inferred from columns being 0.
+ * 只有当 stdout 是真实 TTY、支持颜色、且宽度足够时才渲染渐变字标。
+ * 在 win32 上光靠 picocolors 不够 —— 它报告支持颜色时并不检查是不是 TTY ——
+ * 所以这里显式检查 isTTY，而不是从 columns 为 0 反推。
  */
 export function banner() {
   const { version = '--', author = 'HuberyYang' } = getPkgInfo()
@@ -151,11 +148,10 @@ export function banner() {
 }
 
 /**
- * Reads this CLI's own package.json
+ * 读取这个 CLI 自己的 package.json
  *
- * Walks up from wherever this module ends up rather than using a fixed relative
- * path: the source sits at `src/utils/` but the build collapses it into `dist/`,
- * so any single `../` guess is wrong in one of the two layouts.
+ * 从本模块的实际位置向上逐级查找，而不是写死一个相对路径：源码在 `src/utils/`，
+ * 构建后会被压平到 `dist/`，任何一个写死的 `../` 在两种布局里必然有一种是错的。
  */
 function getPkgInfo() {
   let dirPath = path.dirname(fileURLToPath(import.meta.url))
@@ -179,29 +175,26 @@ export async function execCommand(command: string) {
     await execa(file, commandArguments)
   }
   catch (e) {
-    throw new ScriptError(`Failed to execute '${command}'.`, { cause: e })
+    throw new ScriptError(MSG_FOR.execFailed(command), { cause: e })
   }
 }
 
 /**
- * Reads package.json, returning undefined if the file doesn't exist
+ * 读取 package.json，文件不存在时返回 undefined
  *
- * The only difference from getPackageJSON is that it swallows the "file
- * missing" case; a parse failure still throws — that's a real error and
- * shouldn't be silenced
+ * 与 getPackageJSON 的唯一区别是它吞掉了「文件不存在」这种情况；解析失败照样抛，
+ * 那是真正的错误，不该被静音
  */
 function tryReadPackageJSON(): PackageJsonLike | undefined {
   return isRootFileExist('package.json') ? getPackageJSON() : undefined
 }
 
 /**
- * Whether the project already has this dependency
+ * 项目是否已经有这个依赖
  *
- * Both checks must pass: it exists under node_modules, and it's declared
- * in package.json. Checking node_modules alone can be fooled by a hoisted
- * transitive dependency — never written to package.json, yet judged
- * "installed" and skipped; checking only the declaration risks a package
- * that's declared but never actually installed.
+ * 两个检查必须同时通过：node_modules 下存在，且 package.json 里有声明。
+ * 只查 node_modules 会被提升上来的传递依赖骗到 —— 它从没被写进 package.json，
+ * 却被判成「已安装」而跳过；只查声明则可能碰上声明了但实际没装的包。
  */
 export function hasDependency(pkg: string): boolean {
   if (!isRootFileExist(`node_modules/${pkg}`))
@@ -212,7 +205,7 @@ export function hasDependency(pkg: string): boolean {
 }
 
 /**
- * Checks whether a file exists in the project root
+ * 检查项目根目录下是否存在某个文件
  */
 export function isRootFileExist(file: string): boolean {
   const cwd = process.cwd()
@@ -221,13 +214,13 @@ export function isRootFileExist(file: string): boolean {
 }
 
 /**
- * check whether the project is a monorepo
- * by detecting a non-empty `packages` field in pnpm-workspace.yaml
- * or a non-empty `workspaces` field in package.json
+ * 判断项目是不是 monorepo
+ * 依据是 pnpm-workspace.yaml 里有非空的 `packages` 字段，
+ * 或 package.json 里有非空的 `workspaces` 字段
  */
 export function isMonorepo(): boolean {
-  // A predicate shouldn't halt the flow: treat a missing package.json as
-  // "not a monorepo" rather than letting getPackageJSON's "file missing" error escape from here
+  // 判定函数不该中断流程：package.json 不存在时当成「不是 monorepo」，
+  // 而不是让 getPackageJSON 的「文件不存在」错误从这里逃出去
   const pkg = tryReadPackageJSON()
   if (Array.isArray(pkg?.workspaces) && pkg.workspaces.length > 0)
     return true
@@ -246,8 +239,8 @@ export function isMonorepo(): boolean {
 }
 
 /**
- * check whether the project is a TypeScript project
- * by scanning for tsconfig*.json files in the project root
+ * 判断项目是不是 TypeScript 项目
+ * 依据是扫描项目根目录下有没有 tsconfig*.json
  */
 export function isTsProject(): boolean {
   const cwd = process.cwd()
@@ -256,16 +249,15 @@ export function isTsProject(): boolean {
 }
 
 /**
- * get the package.json in object format
+ * 以对象形式取得 package.json
  *
- * Always throws if the file is missing or invalid, so callers get back a
- * valid object without needing a null check
+ * 文件缺失或非法时一律抛错，这样调用方拿到的一定是个有效对象，不用再判空
  */
 export function getPackageJSON(): PackageJsonLike {
   const cwd = process.cwd()
   const path = resolve(cwd, 'package.json')
   if (!isRootFileExist('package.json'))
-    throw new ScriptError('Cannot find package.json in the current directory.')
+    throw new ScriptError(MSG.cannotFindPackageJson)
 
   try {
     const raw = fs.readFileSync(path, 'utf-8')
@@ -273,7 +265,7 @@ export function getPackageJSON(): PackageJsonLike {
     return data
   }
   catch (e) {
-    throw new ScriptError('Failed to parse package.json.', { cause: e })
+    throw new ScriptError(MSG.parsePackageJsonFailed, { cause: e })
   }
 }
 
@@ -282,6 +274,6 @@ export async function writePackageJSON(data: PackageJsonLike) {
     await w('package.json', `${JSON.stringify(data, null, 2)}\n`)
   }
   catch (e) {
-    throw new ScriptError('Failed to write in package.json.', { cause: e })
+    throw new ScriptError(MSG.writePackageJsonFailed, { cause: e })
   }
 }
