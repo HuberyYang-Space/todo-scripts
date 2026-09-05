@@ -5,10 +5,10 @@ import { MESSAGES } from './helpers/constants'
 import { useFixture } from './helpers/fixture'
 
 /**
- * Regression suite for running against a project that is already configured.
+ * 针对「已经配置过的项目」运行时的回归测试集。
  *
- * Every case here used to either silently disable the thing being installed, delete
- * a config the user owned, or write a second competing config file.
+ * 这里的每一个用例，从前都会导致下面三种后果之一：悄悄让正在安装的东西失效、
+ * 删掉本属于用户的配置、或者写下第二份互相打架的配置文件。
  */
 
 describe('已有 husky 钩子', () => {
@@ -23,9 +23,9 @@ describe('已有 husky 钩子', () => {
     assertOk(result, fixture)
 
     const hook = fixture.read('.husky/pre-commit')
-    // The user's own line must survive...
+    // 用户自己那行必须活下来……
     expect(hook).toContain('echo "my own check"')
-    // ...and ours must actually be in there, or lint-staged never runs on commit
+    // ……而我们那行也必须真的在里面，否则提交时 lint-staged 根本不会跑
     expect(hook).toContain('lint-staged')
   })
 

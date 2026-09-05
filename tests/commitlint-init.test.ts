@@ -56,7 +56,7 @@ vi.mock('@/utils/prompt', () => ({
   promptLinterChoice: promptLinterChoiceMock,
 }))
 
-// The one and only package manager seam: the script only talks to npm/pnpm/yarn through this
+// 包管理器唯一的接缝：脚本只经由它和 npm/pnpm/yarn 打交道
 vi.mock('@/utils/package-manager', () => ({
   createPackageManager: () => ({
     name: 'pnpm',
@@ -73,7 +73,7 @@ vi.mock('yocto-spinner', () => ({
 
 const { init } = await import('@/scripts/commitlint-init')
 
-// resolve() returns backslash paths on windows; normalize to posix before asserting so both platforms match
+// resolve() 在 windows 上返回反斜杠路径；断言前统一规范化成 posix 形式，两个平台就都能对上
 function toPosix(p: unknown): string {
   return String(p).replaceAll('\\', '/')
 }
@@ -82,7 +82,7 @@ describe('commitlint-init init()', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     pkgState = { name: 'demo' }
-    // resetAllMocks clears implementations, so re-establish each mock's default behavior here
+    // resetAllMocks 会清掉实现，所以在这里把每个 mock 的默认行为重新建立起来
     getPackageJSONMock.mockImplementation(() => pkgState)
     ensureInstalledMock.mockResolvedValue(undefined)
     pmExecMock.mockResolvedValue(undefined)
@@ -113,7 +113,7 @@ describe('commitlint-init init()', () => {
 
   it('默认（非 czgit）应该只安装 4 个基础依赖', async () => {
     await init({})
-    // Installed in a single call, not serially package by package
+    // 一次调用装完，而不是一个包一个包地串行装
     expect(ensureInstalledMock).toHaveBeenCalledTimes(1)
     expect(ensureInstalledMock).toHaveBeenCalledWith(
       ['@commitlint/cli', '@commitlint/config-conventional', 'husky', 'lint-staged'],
@@ -150,9 +150,9 @@ describe('commitlint-init init()', () => {
   })
 
   it('husky hooks 已存在时应该在保留用户原内容的基础上追加我们的命令', async () => {
-    // husky 9's init unconditionally overwrites .husky/pre-commit, so the content read
-    // before init has to be written back. Writing back *only* that content, though, left
-    // our command out of the hook entirely — setup looked fine while lint-staged never ran.
+    // husky 9 的 init 会无条件覆盖 .husky/pre-commit，所以必须把 init 之前读到的内容
+    // 写回去。但「只」写回那份内容，会让我们的命令根本没进钩子 —— 配置看起来一切正常，
+    // 可 lint-staged 从来没跑过。
     vi.mocked(existsSync).mockImplementation(p => String(p).includes('.husky'))
     vi.mocked(readFileSync).mockReturnValue('# 用户自己手写的钩子')
     await init({})
@@ -207,8 +207,8 @@ describe('commitlint-init init()', () => {
   })
 
   it('husky init 自己创建的 pre-commit 不应该挡住我们的钩子', async () => {
-    // Regression case: husky init generates a .husky/pre-commit whose content is `npm test`.
-    // The existence check must happen before husky init runs, otherwise our hook never gets written.
+    // 回归用例：husky init 会生成一个内容为 `npm test` 的 .husky/pre-commit。
+    // 存在性检查必须发生在 husky init 之前，否则我们的钩子永远写不进去。
     let huskyInitialized = false
     pmExecMock.mockImplementation(async (command: string) => {
       if (command === 'husky init')
@@ -223,7 +223,7 @@ describe('commitlint-init init()', () => {
       expect.stringMatching(/\.husky[\\/]pre-commit$/),
       expect.stringContaining('lint-staged'),
     )
-    // This hook was never the user's to begin with, so no "already exists" warning should fire
+    // 这个钩子本来就不是用户的，所以不该冒出「已存在」这类警告
     expect(printWarnMock).not.toHaveBeenCalledWith(expect.stringContaining('.husky/pre-commit'))
   })
 
@@ -276,7 +276,7 @@ describe('commitlint-init init()', () => {
   })
 
   it('husky init 写入的 scripts.prepare 不应该被后续 package.json 写入覆盖掉', async () => {
-    // Simulate the real side effect of husky init: unconditionally writes scripts.prepare into package.json
+    // 模拟 husky init 真实的副作用：无条件往 package.json 里写 scripts.prepare
     pmExecMock.mockImplementation(async (command: string) => {
       if (command === 'husky init')
         pkgState = { ...pkgState, scripts: { ...pkgState.scripts, prepare: 'husky' } }
@@ -290,7 +290,7 @@ describe('commitlint-init init()', () => {
     detectLinterMock.mockReturnValue('eslint')
     isLinterInstalledMock.mockImplementation(kind => kind === 'eslint')
     await init({})
-    // package.json is written exactly once, during the config-writing step; lint no longer causes an extra round trip
+    // package.json 只在写配置那一步被写入一次；收尾的 lint 不再引起额外的读写往返
     expect(writePackageJSONMock).toHaveBeenCalledTimes(1)
     for (const [written] of writePackageJSONMock.mock.calls)
       expect(written.scripts!['__hubery__:fix']).toBeUndefined()
@@ -367,11 +367,11 @@ describe('commitlint-init init()', () => {
       expect(pmExecMock).not.toHaveBeenCalledWith(expect.stringContaining('--fix'), expect.anything())
     })
 
-    it('裸 --linter（mri 解析为布尔值 true）不应该抛出异常，应回退到自动探测', async () => {
-      // mri parses a bare `--linter` (no attached value) as boolean true, not a string,
-      // since main.ts doesn't yet declare `linter` in its `string` array (that's Task 6's job).
-      // resolveLinterChoice must defend against this at runtime despite ArgvOptions.linter's
-      // static `string | undefined` type.
+    it('linter 拿到非字符串值时不应该抛出异常，应回退到自动探测', async () => {
+      // registry 里 linter 声明成 type: 'string'，buildParserConfig 会把它派生进 mri 的
+      // string 列表，所以走 CLI 时裸 --linter 已经不会被解析成布尔值了。但 init() 可以
+      // 被直接调用（这个单测就是这么干的），而 ArgvOptions.linter 那个 `string | undefined`
+      // 的静态类型挡不住运行时塞进来别的东西，所以 resolveLinterChoice 的运行时防御仍然要留。
       detectLinterMock.mockReturnValue('eslint')
       isLinterInstalledMock.mockImplementation(kind => kind === 'eslint')
       await expect(init({ linter: true as any })).resolves.not.toThrow()

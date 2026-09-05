@@ -2,7 +2,7 @@ import type { PackageManager } from '@/utils/package-manager'
 import { describe, expect, it } from 'vitest'
 import { COMMITLINT_CONFIG_FILES, createFileJournal, detectHuskyV4, findExistingConfig, LINT_STAGED_CONFIG_FILES, patchPackageJSON, planSetup, resolveHookContent, surveyProject } from '@/scripts/commitlint-init'
 
-// Pure function tests: no need to mock the filesystem, subprocess, or spinner
+// 纯函数测试：不需要 mock 文件系统、子进程或 spinner
 const pm = {
   formatExec: (command: string) => `pnpm exec ${command}`,
 } as PackageManager
@@ -126,8 +126,8 @@ describe('patchPackageJSON', () => {
   })
 
   it('--czgit 时应该保留 commitizen 子对象里已有的配置', () => {
-    // cz-git's config lives under config.commitizen (alongside path there's also
-    // alias/types etc.) — merging only the outer layer would lose that inner data
+    // cz-git 的配置挂在 config.commitizen 下（除了 path，还有 alias/types 等）——
+    // 只合并外层会丢掉里面这些数据
     const result = patchPackageJSON(
       { name: 'demo', config: { commitizen: { path: 'x', alias: { fd: 'docs: fix typos' } } } },
       { czgit: true },
@@ -139,7 +139,7 @@ describe('patchPackageJSON', () => {
   })
 
   it('--czgit 时应该保留 config 下已有的其他字段', () => {
-    // Regression case: this used to overwrite config wholesale, dropping the user's other fields
+    // 回归用例：这里从前是整个覆盖 config，把用户的其他字段一并丢掉
     const result = patchPackageJSON(
       { name: 'demo', config: { other: 'keep-me' } },
       { czgit: true },

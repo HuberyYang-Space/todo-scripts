@@ -28,7 +28,7 @@ vi.mock('yocto-spinner', () => ({
 
 const originalUserAgent = process.env.npm_config_user_agent
 
-/** Simulates a given package manager + non-monorepo + nothing installed yet */
+/** 模拟指定的包管理器 + 非 monorepo + 什么都还没装 */
 function usePkgManager(userAgent: string | undefined) {
   if (userAgent === undefined)
     delete process.env.npm_config_user_agent
@@ -50,7 +50,7 @@ afterEach(() => {
 })
 
 // ========================================
-// getPkgManager - detects the currently used package manager
+// getPkgManager —— 探测当前使用的包管理器
 // ========================================
 describe('getPkgManager', () => {
   it('应该正确解析 pnpm 的 user agent', () => {
@@ -80,10 +80,10 @@ describe('getPkgManager', () => {
 })
 
 // ========================================
-// ensureInstalled - each package manager's install command
+// ensureInstalled —— 各包管理器的安装命令
 // ========================================
 describe('ensureInstalled', () => {
-  // The npm / pnpm / yarn rows have been verified by hand; bun / deno follow the official docs
+  // npm / pnpm / yarn 三行是手工验证过的；bun / deno 照官方文档写
   it.each([
     ['npm/10.2.0 node/v20.10.0', 'npm install husky --save-dev'],
     ['pnpm/10.33.0 npm/? node/v22.12.0', 'pnpm add husky --save-dev'],
@@ -129,9 +129,9 @@ describe('ensureInstalled', () => {
     process.env.npm_config_user_agent = 'npm/10.2.0 node/v20.10.0'
     vi.spyOn(fs, 'existsSync').mockReturnValue(false)
     const pm = createPackageManager()
-    // After construction, make node_modules resolve as "everything already present" —
-    // package.json must be mocked too, otherwise this reads this repo's real dependencies
-    // and the test would only pass because this repo happens to have husky installed
+    // 构造完之后，让 node_modules 解析成「什么都已经装好了」——
+    // package.json 也必须一起 mock，否则这里会读到本仓库真实的依赖，
+    // 用例通过就只是因为本仓库恰好装了 husky
     vi.spyOn(fs, 'existsSync').mockReturnValue(true)
     vi.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify({ devDependencies: { husky: '^9.1.7' } }))
     await pm.ensureInstalled(['husky'], { dev: true })
@@ -147,7 +147,7 @@ describe('ensureInstalled', () => {
       return JSON.stringify({ name: 'test' })
     })
     const pm = createPackageManager()
-    // node_modules resolves as not present, so it actually goes to install
+    // node_modules 解析为不存在，于是真的会走安装流程
     vi.spyOn(fs, 'existsSync').mockImplementation(p => !String(p).includes('node_modules/'))
     await pm.ensureInstalled(['husky'], { dev: true })
     expect(execa).toHaveBeenCalledWith('pnpm', ['add', '-w', 'husky', '--save-dev'])
@@ -202,7 +202,7 @@ describe('exec / formatExec', () => {
     ['pnpm/10.33.0 npm/? node/v22.12.0', 'pnpm exec husky init'],
     ['yarn/1.22.19 npm/? node/v20.10.0', 'yarn husky init'],
     ['bun/1.0.0 npm/? node/v20.10.0', 'bunx husky init'],
-    // deno's npm: prefix attaches directly to the bin name, with no space in between
+    // deno 的 npm: 前缀直接贴着 bin 名字，中间不能有空格
     ['deno/1.40.0 npm/? node/v20.10.0', 'deno run -A npm:husky init'],
   ])('%s 应该拼成 "%s"', async (userAgent, expected) => {
     const pm = usePkgManager(userAgent)
@@ -225,14 +225,14 @@ describe('exec / formatExec', () => {
   })
 
   it('认不出的包管理器拼出的命令不应该缺少空格', async () => {
-    // The old implementation's default branch returned 'npx' (missing a trailing space), producing npxhusky
+    // 旧实现的默认分支返回的是 'npx'（少了个结尾空格），拼出来是 npxhusky
     const pm = usePkgManager('cnpm/1.0.0 node/v20.10.0')
     expect(pm.formatExec('husky init')).toBe('npx --no -- husky init')
   })
 })
 
 // ========================================
-// Detection happens only once - no repeated filesystem reads after construction
+// 探测只发生一次 —— 构造之后不再重复读文件系统
 // ========================================
 describe('探测只发生一次', () => {
   beforeEach(() => {
@@ -247,7 +247,7 @@ describe('探测只发生一次', () => {
     await pm.ensureInstalled(['a'], { dev: true })
     await pm.ensureInstalled(['b'], { dev: true })
 
-    // Afterward there's only one node_modules existence check per package left — no repeated pnpm-workspace.yaml reads
+    // 之后每个包只剩一次 node_modules 存在性检查 —— 不会重复读 pnpm-workspace.yaml
     const calls = existsSpy.mock.calls.slice(afterConstruct).map(c => String(c[0]))
     expect(calls).toHaveLength(2)
     expect(calls.every(p => p.includes('node_modules'))).toBe(true)

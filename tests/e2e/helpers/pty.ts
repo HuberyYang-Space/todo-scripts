@@ -11,7 +11,7 @@ import { BIN_PATH } from './cli'
 const HELPERS_DIR = dirname(fileURLToPath(import.meta.url))
 const DRIVER = resolve(HELPERS_DIR, 'pty-driver.py')
 
-/** Keys understood by the clack select prompt */
+/** clack 的 select 提示能识别的按键 */
 export const KEY = {
   down: '\x1B[B',
   up: '\x1B[A',
@@ -22,9 +22,8 @@ export const KEY = {
 let availability: { ok: true } | { ok: false, reason: string } | undefined
 
 /**
- * Whether a pty can be driven here. Returns a reason instead of throwing, so the
- * interactive cases skip with an explanation rather than failing the suite on a
- * machine that simply cannot run them.
+ * 当前环境能不能驱动 pty。返回原因而不是抛错，这样交互用例会带着说明被跳过，
+ * 而不是在一台根本跑不了它们的机器上让整套测试失败。
  */
 export function ptyAvailability(): { ok: true } | { ok: false, reason: string } {
   if (availability)
@@ -40,7 +39,7 @@ export function ptyAvailability(): { ok: true } | { ok: false, reason: string } 
     return (availability = { ok: false, reason: `missing driver at ${DRIVER}` })
 
   try {
-    // 3.9+ is required for os.waitstatus_to_exitcode, which the driver uses
+    // 需要 3.9+，driver 用到了 os.waitstatus_to_exitcode
     execaSync('python3', ['-c', 'import sys, pty; assert sys.version_info >= (3, 9)'])
     return (availability = { ok: true })
   }
@@ -53,12 +52,12 @@ export function ptyAvailability(): { ok: true } | { ok: false, reason: string } 
 }
 
 export interface PtySession {
-  /** Everything the child has written so far, ANSI stripped */
+  /** 子进程到目前为止写出的全部内容，已去掉 ANSI 转义 */
   output: () => string
-  /** Resolves once the output satisfies the predicate; rejects on timeout */
+  /** 输出满足断言条件时 resolve；超时则 reject */
   waitFor: (predicate: (output: string) => boolean, label: string, timeout?: number) => Promise<void>
   write: (keys: string) => void
-  /** Resolves with the child's exit code */
+  /** resolve 出子进程的退出码 */
   done: () => Promise<number>
 }
 
@@ -70,10 +69,10 @@ export interface RunInPtyOptions {
 }
 
 /**
- * Runs the CLI on a real pty against a fixture.
+ * 在真实 pty 上、针对某个 fixture 运行 CLI。
  *
- * The environment is the same allowlist runCli uses, minus CI and with a real TERM —
- * both halves of isInteractive() have to be true for the prompt to appear at all.
+ * 环境变量用的是和 runCli 相同的白名单，去掉 CI 并给一个真实的 TERM ——
+ * isInteractive() 的两半都为真，提示才会出现。
  */
 export function runCliInPty(
   fixture: Fixture,
@@ -90,7 +89,7 @@ export function runCliInPty(
     LANG: 'en_US.UTF-8',
     GIT_CONFIG_GLOBAL: '/dev/null',
     GIT_CONFIG_NOSYSTEM: '1',
-    // A real terminal type, and deliberately NO CI — isInteractive() needs both
+    // 一个真实的终端类型，并且刻意「不」设 CI —— isInteractive() 两个条件都要
     TERM: 'xterm-256color',
     npm_config_user_agent: `${packageManager}/10.9.2 npm/? node/${process.version} ${process.platform} ${process.arch}`,
     ...options.env,
@@ -127,8 +126,8 @@ export function runCliInPty(
     output,
     async waitFor(predicate, label, timeout = 20_000) {
       const deadline = Date.now() + timeout
-      // Polling rather than a fixed sleep: prompt render time varies with machine
-      // load, and a sleep long enough to be safe makes every case slow
+      // 用轮询而不是固定 sleep：提示的渲染耗时随机器负载浮动，
+      // 而一个长到足够保险的 sleep 会让每个用例都变慢
       while (Date.now() < deadline) {
         if (predicate(output()))
           return

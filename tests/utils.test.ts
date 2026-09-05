@@ -19,7 +19,7 @@ import {
   writePackageJSON,
 } from '@/utils'
 
-// For failure-path tests: execa and file writes must be able to fail on demand, and the spinner must not spin in test output
+// 为失败路径的用例准备：execa 和文件写入要能按需失败，spinner 也不能在测试输出里转圈
 vi.mock('execa', async importOriginal => ({
   ...await importOriginal<typeof import('execa')>(),
   execa: vi.fn(async () => {}),
@@ -30,22 +30,22 @@ vi.mock('yocto-spinner', () => ({
 }))
 
 // ========================================
-// isRootFileExist - checks whether a file exists in the project root
+// isRootFileExist —— 检查项目根目录下是否存在某个文件
 // ========================================
 describe('isRootFileExist', () => {
   it('文件存在时应该返回 true', () => {
-    // package.json is guaranteed to exist in the current project root
+    // 当前项目根目录下必然有 package.json
     expect(isRootFileExist('package.json')).toBe(true)
   })
 
   it('文件不存在时应该返回 false', () => {
-    // A filename that couldn't possibly exist
+    // 一个不可能存在的文件名
     expect(isRootFileExist('this-file-does-not-exist-12345.json')).toBe(false)
   })
 })
 
 // ========================================
-// isTsProject - detects whether the project is a TypeScript project
+// isTsProject —— 判断项目是不是 TypeScript 项目
 // ========================================
 describe('isTsProject', () => {
   afterEach(() => {
@@ -53,7 +53,7 @@ describe('isTsProject', () => {
   })
 
   it('存在 tsconfig.json 时应该返回 true', () => {
-    // Simulate a directory that contains tsconfig.json
+    // 模拟一个包含 tsconfig.json 的目录
     vi.spyOn(fs, 'readdirSync').mockReturnValue(['package.json', 'tsconfig.json', 'src'] as any)
     expect(isTsProject()).toBe(true)
   })
@@ -84,14 +84,14 @@ describe('isTsProject', () => {
   })
 
   it('不应该误判名称相似但不匹配的文件', () => {
-    // "mytsconfig.json" doesn't start with tsconfig, so it shouldn't match
+    // "mytsconfig.json" 不是以 tsconfig 开头的，不该被匹配到
     vi.spyOn(fs, 'readdirSync').mockReturnValue(['mytsconfig.json', 'tsconfig-invalid'] as any)
     expect(isTsProject()).toBe(false)
   })
 })
 
 // ========================================
-// isMonorepo - detects whether the project is a monorepo
+// isMonorepo —— 判断项目是不是 monorepo
 // ========================================
 describe('isMonorepo', () => {
   afterEach(() => {
@@ -109,7 +109,7 @@ describe('isMonorepo', () => {
   })
 
   it('pnpm-workspace.yaml 存在但没有声明 packages 字段时应该返回 false', () => {
-    // Reproduces this repo's own scenario: pnpm-workspace.yaml only holds settings, no packages field
+    // 复现本仓库自己的情况：pnpm-workspace.yaml 里只有配置项，没有 packages 字段
     vi.spyOn(fs, 'existsSync').mockReturnValue(true)
     vi.spyOn(fs, 'readFileSync').mockImplementation((p) => {
       if (String(p).includes('pnpm-workspace.yaml'))
@@ -120,12 +120,12 @@ describe('isMonorepo', () => {
   })
 
   it('package.json 中有 workspaces 字段时应该返回 true', () => {
-    // Simulate pnpm-workspace.yaml not existing
+    // 模拟 pnpm-workspace.yaml 不存在
     vi.spyOn(fs, 'existsSync').mockImplementation((p) => {
-      // pnpm-workspace.yaml is absent, but package.json exists
+      // pnpm-workspace.yaml 不在，但 package.json 在
       return !String(p).includes('pnpm-workspace.yaml')
     })
-    // Simulate package.json containing a workspaces field
+    // 模拟 package.json 里带有 workspaces 字段
     vi.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify({
       name: 'my-monorepo',
       workspaces: ['packages/*'],
@@ -145,11 +145,11 @@ describe('isMonorepo', () => {
 })
 
 // ========================================
-// getPackageJSON - reads and parses package.json
+// getPackageJSON —— 读取并解析 package.json
 // ========================================
 describe('getPackageJSON', () => {
   it('应该返回一个包含 name 字段的对象', () => {
-    // The current project root has a package.json, so this reads the real file directly
+    // 当前项目根目录有 package.json，所以这里直接读真实文件
     const pkg = getPackageJSON()
     expect(pkg).toBeDefined()
     expect(pkg!.name).toBe('@huberyyang/todo-scripts')
@@ -157,12 +157,12 @@ describe('getPackageJSON', () => {
 
   it('返回的对象应该包含 version 字段', () => {
     const pkg = getPackageJSON()
-    // version should be a semver-formatted string
+    // version 应该是一个 semver 格式的字符串
     expect(pkg!.version).toMatch(/^\d+\.\d+\.\d+/)
   })
 
   it('当 package.json 不存在时应该抛出 ScriptError', () => {
-    // Simulate the file-missing case: no longer returns undefined, so callers need no null check
+    // 模拟文件不存在的情况：不再返回 undefined，所以调用方不用判空
     vi.spyOn(fs, 'existsSync').mockReturnValue(false)
     expect(() => getPackageJSON()).toThrow(ScriptError)
     expect(() => getPackageJSON()).toThrow('当前目录下找不到 package.json。')
@@ -178,16 +178,16 @@ describe('getPackageJSON', () => {
 })
 
 // ========================================
-// printWarn / printErr - terminal message output
+// printWarn / printErr —— 终端消息输出
 // ========================================
 describe('printWarn', () => {
   it('应该调用 console.log 输出警告信息', () => {
-    // Use vi.spyOn to observe console.log calls
+    // 用 vi.spyOn 观察 console.log 的调用
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     printWarn('test warning')
-    // printWarn calls console.log 3 times: blank line, content, blank line
+    // printWarn 会调用 console.log 三次：空行、内容、空行
     expect(spy).toHaveBeenCalledTimes(3)
-    // The second call should contain the warning text
+    // 第二次调用应该包含警告文本
     const output = spy.mock.calls[1][0] as string
     expect(output).toContain('test warning')
     // 断言带前后空格的色块标记本身，而不是裸的 'WARN'——后者是 'warning' 的子串，
@@ -210,7 +210,7 @@ describe('printErr', () => {
 })
 
 // ========================================
-// resolveBannerMode - the header banner picks a render mode based on terminal capability
+// resolveBannerMode —— 头部 banner 根据终端能力挑选渲染模式
 // ========================================
 describe('resolveBannerMode', () => {
   it('终端够宽且支持颜色时应该返回 gradient', () => {
@@ -234,13 +234,13 @@ describe('resolveBannerMode', () => {
   })
 
   it('非 TTY 场景下 columns 为 0 时应该返回 plain', () => {
-    // banner() passes in 0 when process.stdout.columns is undefined
+    // process.stdout.columns 为 undefined 时，banner() 传进来的是 0
     expect(resolveBannerMode(0, true)).toBe('plain')
   })
 })
 
 // ========================================
-// isInteractive - whether stdin is a real interactive terminal
+// isInteractive —— stdin 是不是一个真正的交互式终端
 // ========================================
 describe('isInteractive', () => {
   const originalIsTTY = process.stdin.isTTY
@@ -274,14 +274,14 @@ describe('isInteractive', () => {
 })
 
 // ========================================
-// hasDependency - whether the project already has a given dependency
+// hasDependency —— 项目是否已经有某个依赖
 // ========================================
 describe('hasDependency', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  /** Both node_modules and package.json exist; the package.json content is driven by the argument */
+  /** node_modules 和 package.json 都存在；package.json 的内容由入参决定 */
   function mockProject(pkgJson: object) {
     vi.spyOn(fs, 'existsSync').mockReturnValue(true)
     vi.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify(pkgJson))
@@ -298,15 +298,14 @@ describe('hasDependency', () => {
   })
 
   it('装在 node_modules 但没写进 package.json 时应该返回 false', () => {
-    // Reproduces a hoisted transitive dependency: the directory exists, but the
-    // dependency was never declared — checking the directory alone would
-    // misjudge it as installed and skip the install
+    // 复现被提升上来的传递依赖：目录在，但这个依赖从没被声明过 ——
+    // 只查目录会把它误判成已安装，从而跳过安装
     mockProject({ devDependencies: { '@commitlint/cli': '^21.0.0' } })
     expect(hasDependency('@commitlint/config-conventional')).toBe(false)
   })
 
   it('写进了 package.json 但 node_modules 下不存在时应该返回 false', () => {
-    // resolve() returns backslash paths on windows; compare against the posix-normalized string so both platforms match
+    // resolve() 在 windows 上返回反斜杠路径；统一规范化成 posix 形式再比较，两个平台就都能对上
     vi.spyOn(fs, 'existsSync').mockImplementation(p => !String(p).replaceAll('\\', '/').endsWith('node_modules/husky'))
     vi.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify({ devDependencies: { husky: '^9.0.0' } }))
     expect(hasDependency('husky')).toBe(false)
@@ -320,7 +319,7 @@ describe('hasDependency', () => {
 })
 
 // ========================================
-// Failure paths - leaf functions only throw ScriptError, never terminate the process
+// 失败路径 —— 叶子函数只抛 ScriptError，从不终止进程
 // ========================================
 describe('失败路径', () => {
   afterEach(() => {
@@ -333,7 +332,7 @@ describe('失败路径', () => {
     const raw = new Error('exit code 1')
     vi.mocked(execa).mockRejectedValue(raw)
     await expect(execCommand('git init')).rejects.toThrow(ScriptError)
-    // The original error is preserved via cause, so debugging doesn't lose the evidence
+    // 原始错误通过 cause 保留下来，排障时不会丢掉证据
     await expect(execCommand('git init')).rejects.toMatchObject({
       message: `执行 'git init' 失败。`,
       cause: raw,

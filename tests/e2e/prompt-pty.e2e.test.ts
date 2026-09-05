@@ -8,8 +8,7 @@ const pty = ptyAvailability()
 if (!pty.ok)
   console.warn(`[e2e] 交互提示用例已跳过：${pty.reason}`)
 
-// Short anchor on purpose: the prompt's own message is a 90-character bilingual
-// string that may be reworded or wrapped, while the option labels are stable
+// 刻意用一个短锚点：提示语本身可能被改写或折行，而选项标签是稳定的
 const PROMPT_VISIBLE = (output: string): boolean => output.includes('Oxlint')
 
 describe.skipIf(!pty.ok)('交互式 linter 选择（需要 pty）', () => {
@@ -43,9 +42,8 @@ describe.skipIf(!pty.ok)('交互式 linter 选择（需要 pty）', () => {
     const session = runCliInPty(fixture, ['commitlint-init'])
 
     await session.waitFor(PROMPT_VISIBLE, '选择提示出现')
-    // Once the prompt has rendered its keypress handler is live, and the pty
-    // delivers these in order — the generated config below is what proves the
-    // arrow key actually moved the selection
+    // 提示一旦渲染出来，它的按键处理就已经就绪，pty 会按顺序把这些键送进去 ——
+    // 下面生成的配置才是「方向键确实移动了选中项」的证据
     session.write(KEY.down)
     session.write(KEY.enter)
 
@@ -78,7 +76,7 @@ describe.skipIf(!pty.ok)('交互式 linter 选择（需要 pty）', () => {
 
     expect(await session.done()).toBe(0)
     expect(fixture.read(LINT_STAGED_FILE)).toBe(LINT_STAGED_CONFIG.none)
-    // Choosing "skip" is not the same as cancelling, and must not report as one
+    // 选择「跳过」和取消不是一回事，不能被当成取消来报告
     expect(session.output()).not.toContain(MESSAGES.promptCancelled)
   })
 
@@ -89,8 +87,8 @@ describe.skipIf(!pty.ok)('交互式 linter 选择（需要 pty）', () => {
     await session.waitFor(PROMPT_VISIBLE, '选择提示出现')
     session.write(KEY.ctrlC)
 
-    // Exit 0, not 130: in raw mode clack receives \x03 as data and maps it to
-    // cancel, so no SIGINT is raised and the run finishes normally
+    // 退出码是 0 而不是 130：raw 模式下 clack 是把 \x03 当数据收到并映射成取消的，
+    // 并没有真的产生 SIGINT，所以这次运行是正常结束的
     expect(await session.done()).toBe(0)
     expect(session.output()).toContain(MESSAGES.promptCancelled)
     expect(fixture.read(LINT_STAGED_FILE)).toBe(LINT_STAGED_CONFIG.none)
@@ -100,7 +98,7 @@ describe.skipIf(!pty.ok)('交互式 linter 选择（需要 pty）', () => {
     const fixture = await useFixture({ linters: ['eslint'] })
     const session = runCliInPty(fixture, ['commitlint-init'])
 
-    // No keys are ever sent; if a prompt appeared this would hang until timeout
+    // 全程不发任何按键；一旦真的弹出了提示，这里就会一直挂到超时
     expect(await session.done()).toBe(0)
     expect(session.output()).not.toContain('Oxlint')
     expect(fixture.read(LINT_STAGED_FILE)).toBe(LINT_STAGED_CONFIG.eslint)

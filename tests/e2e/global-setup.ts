@@ -8,13 +8,12 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const DIST_ENTRY = resolve(REPO_ROOT, 'dist/main.js')
 
 /**
- * Builds dist/ once, before any E2E worker starts.
+ * 在任何 E2E worker 启动之前，构建一次 dist/。
  *
- * This lives in globalSetup rather than a `pnpm build && vitest run` script chain
- * because globalSetup covers every entry point — `pnpm test:e2e`, running a single
- * file from an IDE, and `--watch`. A script chain only covers the first, leaving the
- * others to silently assert against a stale dist/, which is the hardest class of
- * false result to notice in an E2E suite.
+ * 放在 globalSetup 而不是 `pnpm build && vitest run` 这种脚本串联里，是因为
+ * globalSetup 能覆盖所有入口 —— `pnpm test:e2e`、从 IDE 里跑单个文件、以及
+ * `--watch`。脚本串联只覆盖第一种，剩下两种会默默地拿一个过期的 dist/ 去断言，
+ * 而这正是 E2E 里最难被察觉的一类假结果。
  */
 export async function setup(): Promise<void> {
   if (process.env.E2E_SKIP_BUILD === '1') {

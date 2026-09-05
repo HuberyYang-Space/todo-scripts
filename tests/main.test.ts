@@ -48,7 +48,7 @@ describe('main', () => {
   })
 
   it('不带脚本名的 hubery --help 也应该打印帮助信息', async () => {
-    // Args are parsed starting from argv[2], so --help no longer needs to follow the script name
+    // 参数从 argv[2] 开始解析，所以 --help 不再必须跟在脚本名后面
     process.argv = ['node', 'hubery', '--help']
     await main()
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('commitlint-init'))
@@ -69,7 +69,7 @@ describe('main', () => {
 
   it('传入未注册脚本名时应该抛出 ScriptError', async () => {
     process.argv = ['node', 'hubery', 'not-a-script']
-    // main() itself never terminates the process; exiting is left to bin/index.js
+    // main() 自己从不终止进程；退出这件事留给 bin/index.js
     await expect(main()).rejects.toThrow(ScriptError)
     await expect(main()).rejects.toThrow('请指定一个要执行的脚本。')
     expect(initMock).not.toHaveBeenCalled()

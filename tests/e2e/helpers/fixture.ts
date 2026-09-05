@@ -10,51 +10,51 @@ import { BASE_PACKAGES, CZGIT_PACKAGES, LINTER_PACKAGES } from './constants'
 
 const require_ = createRequire(import.meta.url)
 
-/** Prefix on every fixture dir, so strays are easy to spot: `ls $TMPDIR | grep hubery-e2e` */
+/** 每个 fixture 目录的前缀，方便发现漏删的：`ls $TMPDIR | grep hubery-e2e` */
 const DIR_PREFIX = 'hubery-e2e-'
 
 export interface FixtureSpec {
-  /** Fixture project name; also the temp dir suffix */
+  /** fixture 项目名；同时作为临时目录的后缀 */
   name?: string
-  /** Linters to fake as installed: stub node_modules dir + package.json declaration */
+  /** 伪装成已安装的 linter：桩 node_modules 目录 + package.json 声明 */
   linters?: FakeLinter[]
-  /** Declared in package.json but NOT present in node_modules (half of hasDependency) */
+  /** 在 package.json 里声明了、但 node_modules 里没有（hasDependency 的一半条件） */
   declareOnly?: string[]
-  /** Present in node_modules but NOT declared in package.json (the other half) */
+  /** node_modules 里有、但 package.json 里没声明（另一半条件） */
   installOnly?: string[]
   /**
-   * Pre-seed the four packages commitlint-init always installs. Default true.
+   * 预置 commitlint-init 必装的那四个包。默认 true。
    *
-   * Turning this off makes the CLI run a REAL `npm install`, which hits the network
-   * and takes minutes — it is refused unless E2E_ALLOW_INSTALL=1 is set.
+   * 关掉它会让 CLI 跑一次「真的」`npm install`，联网且要几分钟 ——
+   * 除非设了 E2E_ALLOW_INSTALL=1，否则会被直接拒绝。
    */
   seedBaseDeps?: boolean
-  /** Also seed commitizen + cz-git — required for any --czgit case */
+  /** 顺带预置 commitizen + cz-git —— 任何 --czgit 用例都需要 */
   czgit?: boolean
-  /** Packages copied for real out of this repo's node_modules, with a .bin symlink */
+  /** 从本仓库 node_modules 里真实拷贝过来的包，并建好 .bin 软链 */
   realPackages?: string[]
-  /** Extra dependency declarations + stub dirs: name -> version */
+  /** 额外的依赖声明 + 桩目录：包名 -> 版本 */
   deps?: Record<string, string>
-  /** Run `git init` up front. Default false, so the CLI's own git-init branch runs */
+  /** 提前执行 `git init`。默认 false，好让 CLI 自己那条 git-init 分支跑起来 */
   git?: boolean
-  /** Write a tsconfig.json, which makes isTsProject() true */
+  /** 写一个 tsconfig.json，让 isTsProject() 为 true */
   typescript?: boolean
-  /** Merged into the fixture's package.json */
+  /** 合并进 fixture 的 package.json */
   packageJson?: Record<string, unknown>
-  /** Files written before the CLI runs: relative path -> content */
+  /** CLI 运行前先写好的文件：相对路径 -> 内容 */
   files?: Record<string, string>
-  /** Omit package.json entirely, to exercise the missing-manifest error path */
+  /** 完全不生成 package.json，用来走「缺少 manifest」的错误路径 */
   noPackageJson?: boolean
 }
 
 export interface Fixture {
-  /** Absolute, realpath-resolved root of the fixture project */
+  /** fixture 项目的绝对根路径，已做 realpath 解析 */
   readonly dir: string
   path: (...segments: string[]) => string
   exists: (relPath: string) => boolean
   read: (relPath: string) => string
   readJson: <T = Record<string, unknown>>(relPath: string) => T
-  /** Sorted relative paths, excluding node_modules and .git internals */
+  /** 排好序的相对路径，不含 node_modules 与 .git 内部文件 */
   tree: () => string[]
   cleanup: () => Promise<void>
 }
@@ -64,8 +64,8 @@ function stubPackageJson(name: string): string {
 }
 
 /**
- * Creates `node_modules/<pkg>/package.json`, which is all hasDependency() needs on
- * the filesystem side — it only calls existsSync on the directory.
+ * 创建 `node_modules/<pkg>/package.json`，这就是 hasDependency() 在文件系统这边
+ * 需要的全部 —— 它只对目录调用 existsSync。
  */
 async function seedStubPackage(dir: string, pkg: string): Promise<void> {
   const target = join(dir, 'node_modules', pkg)
@@ -74,16 +74,15 @@ async function seedStubPackage(dir: string, pkg: string): Promise<void> {
 }
 
 /**
- * Copies a real package out of this repo's node_modules and links its bin.
+ * 从本仓库的 node_modules 里拷贝一个真实的包，并建好它的 bin 软链。
  *
- * husky is the one package that must genuinely work: commitlint-init runs
- * `husky init` without allowFailure, so a stub would fail the whole run. Copying
- * rather than symlinking keeps the fixture self-contained — pnpm's own
- * node_modules entry is itself a symlink into the store, and husky resolves paths
- * relative to its own file location.
+ * husky 是唯一必须真能跑起来的包：commitlint-init 执行 `husky init` 时没有加
+ * allowFailure，用桩会让整次运行失败。这里是拷贝而不是软链，好让 fixture 自成一体
+ * —— pnpm 自己的 node_modules 条目本身就是指向 store 的软链，而 husky 解析路径时
+ * 是相对它自己所在文件位置的。
  *
- * Resolution note: require.resolve('husky/package.json') throws, because husky's
- * "exports" is a bare string. Resolve the package entry and take its dirname.
+ * 解析上的一个坑：require.resolve('husky/package.json') 会抛错，因为 husky 的
+ * "exports" 是个裸字符串。改成解析包入口再取它的 dirname。
  */
 async function seedRealPackage(dir: string, pkg: string): Promise<void> {
   const source = dirname(require_.resolve(pkg))
@@ -104,7 +103,7 @@ function walk(root: string, current: string, out: string[]): void {
       continue
     const full = join(current, entry.name)
     if (entry.isDirectory()) {
-      // Record .git's existence but not its churning internals
+      // 记录 .git 的存在，但不记录它内部那些一直在变的东西
       if (entry.name === '.git') {
         out.push('.git/')
         continue
@@ -134,11 +133,11 @@ export async function createFixture(spec: FixtureSpec = {}): Promise<Fixture> {
     noPackageJson = false,
   } = spec
 
-  // Both of these make hasDependency() return false for every package, so the CLI
-  // runs a real `npm install` — network, minutes, and it writes a package.json of
-  // its own, which silently changes what the rest of the run does.
-  // noPackageJson is in here for a non-obvious reason: without a manifest there is
-  // nothing for hasDependency to read, so seeding node_modules alone cannot save it.
+  // 这两种情况都会让 hasDependency() 对所有包返回 false，于是 CLI 会跑一次真实的
+  // `npm install` —— 联网、要几分钟，而且它会自己写一个 package.json，悄悄改变
+  // 这次运行后半程的行为。
+  // noPackageJson 也在这里的理由不那么显然：没有 manifest，hasDependency 就没东西可读，
+  // 光预置 node_modules 救不了它。
   if ((!seedBaseDeps || noPackageJson) && process.env.E2E_ALLOW_INSTALL !== '1') {
     throw new Error(
       `${!seedBaseDeps ? 'seedBaseDeps:false' : 'noPackageJson:true'} makes the CLI run a real \`npm install\` `
@@ -152,9 +151,9 @@ export async function createFixture(spec: FixtureSpec = {}): Promise<Fixture> {
     : tmpdir()
   await mkdir(root, { recursive: true })
 
-  // realpath matters on macOS: tmpdir() is /var/folders/... which is a symlink to
-  // /private/var/folders/..., and a child process reports the resolved path as its
-  // cwd. Without this every path-equality assertion fails for no visible reason.
+  // realpath 在 macOS 上很关键：tmpdir() 是 /var/folders/...，它是指向
+  // /private/var/folders/... 的软链，而子进程报告的 cwd 是解析后的路径。
+  // 少了这一步，所有路径相等的断言都会莫名其妙地失败。
   const dir = await realpath(await mkdtemp(join(root, `${DIR_PREFIX}${name}-`)))
 
   const declared: Record<string, string> = {}
@@ -168,7 +167,7 @@ export async function createFixture(spec: FixtureSpec = {}): Promise<Fixture> {
   if (seedBaseDeps) {
     for (const pkg of BASE_PACKAGES) {
       declared[pkg] = '*'
-      // husky (and anything else in realPackages) is copied for real below
+      // husky（以及 realPackages 里的其他包）在下面会被真实拷贝一份
       if (!realPackages.includes(pkg))
         toStub.push(pkg)
     }
@@ -240,10 +239,9 @@ export async function createFixture(spec: FixtureSpec = {}): Promise<Fixture> {
 }
 
 /**
- * Preferred entry point. Same as createFixture, but registers cleanup with vitest:
- * the directory is removed when the test passes and KEPT when it fails, with its
- * path printed — for an E2E failure that surviving directory is the whole
- * investigation. E2E_KEEP=1 keeps it either way.
+ * 推荐的入口。与 createFixture 相同，但把清理注册给了 vitest：用例通过时删掉目录，
+ * 失败时「保留」并打印它的路径 —— 对一次 E2E 失败来说，那个留下来的目录就是全部
+ * 排查线索。设 E2E_KEEP=1 则无论如何都保留。
  */
 export async function useFixture(spec: FixtureSpec = {}): Promise<Fixture> {
   const fixture = await createFixture(spec)
