@@ -25,6 +25,31 @@ export const MSG = {
   noScript: '请指定一个要执行的脚本。',
   processStart: '流程开始',
   clearDone: '清理完成！',
+
+  // —— commitlint-init ——
+  promptCancelled: '已取消选择 —— 跳过 lint-staged 规则。',
+  noLinterNonInteractive:
+    '未探测到 linter，当前也不是交互式终端无法询问 —— 已跳过 lint-staged 规则，请自行编辑 lint-staged.config.mjs。',
+  rollbackDone: '配置失败 —— 本次写入的文件已全部回滚。',
+  pkgFieldCommitlint: 'package.json 的 "commitlint" 字段',
+  pkgFieldLintStaged: 'package.json 的 "lint-staged" 字段',
+  pkgFieldHusky: 'package.json 的 "husky" 字段',
+
+  // —— spinner 各阶段 ——
+  spinnerGitInitStart: '检查 git 仓库...',
+  spinnerGitInitDone: 'git 仓库就绪！',
+  spinnerInstallStart: '安装依赖...',
+  spinnerInstallDone: '依赖安装完成！',
+  spinnerCommitlintStart: '生成 commitlint 配置...',
+  spinnerCommitlintDone: 'commitlint 配置完成！',
+  spinnerLintStagedStart: '生成 lint-staged 配置...',
+  spinnerLintStagedDone: 'lint-staged 配置完成！',
+  spinnerHuskyStart: '配置 husky 钩子...',
+  spinnerHuskyDone: 'husky 钩子配置完成！',
+  spinnerPkgJsonStart: '写入 package.json...',
+  spinnerPkgJsonDone: 'package.json 写入完成！',
+  spinnerLintStart: '格式化生成的文件...',
+  spinnerLintDone: '格式化完成！',
 } as const
 
 /** 需要嵌入文件名 / 取值的文案 */
@@ -37,4 +62,14 @@ export const MSG_FOR = {
     `未知参数：${list}。运行 \`hubery ${script} --help\` 查看支持的参数。`,
   processDone: (seconds: string) => `流程结束，耗时 ${seconds}s`,
   causedBy: (detail: string) => `底层原因：${detail}`,
+
+  unknownLinter: (value: string) => `无法识别的 --linter 取值 "${value}"，改用自动探测。`,
+  configExists: (file: string) => `${file} 已存在`,
+  keptCommitlint: (reason: string) => `已保留你的 commitlint 配置 —— ${reason}。`,
+  keptLintStaged: (reason: string) => `已保留你的 lint-staged 配置 —— ${reason}。`,
+  hookAppended: (hook: string) => `${hook} 已存在 —— 已把我们的命令追加到你的内容之后。`,
+  hookUnchanged: (hook: string) => `${hook} 已经在跑我们的命令，保持原样。`,
+  huskyV4Found: (source: string, detail: string) =>
+    `在 ${source} 发现 husky v4 配置，husky 9 不会读取它 —— 这些钩子实际没有在跑。${detail} 请把它们迁移到 .husky/ 目录后删除旧配置。`,
+  huskyV4Detail: (pairs: string) => ` 其中定义了：${pairs}。`,
 } as const

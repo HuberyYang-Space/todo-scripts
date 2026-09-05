@@ -50,18 +50,18 @@ export const LINT_STAGED_CONFIG: Record<FakeLinter | 'none', string> = {
  * is appended to, so a test asserting it proves neither.
  */
 export const MESSAGES = {
-  noLinterNonInteractive: 'No linter detected, and no interactive terminal to ask',
-  promptCancelled: 'Prompt cancelled — skipping the lint-staged rule.',
-  unknownLinterPrefix: 'Unknown --linter value',
+  noLinterNonInteractive: '未探测到 linter，当前也不是交互式终端无法询问',
+  promptCancelled: '已取消选择 —— 跳过 lint-staged 规则。',
+  unknownLinterPrefix: '无法识别的 --linter 取值',
   noScript: '请指定一个要执行的脚本。',
   missingPackageJson: 'Cannot find package.json',
-  lintRunning: 'lint running',
-  lintDone: 'lint down!',
-  gitInitChecking: 'git init checking...',
-  gitInitDone: 'git init down!',
+  lintRunning: '格式化生成的文件...',
+  lintDone: '格式化完成！',
+  gitInitChecking: '检查 git 仓库...',
+  gitInitDone: 'git 仓库就绪！',
   processDone: '流程结束',
-  commitlintConfigDone: 'commitlint config succeed',
-  rollbackDone: 'Setup failed — the files this script had written were rolled back.',
+  commitlintConfigDone: 'commitlint 配置完成！',
+  rollbackDone: '配置失败 —— 本次写入的文件已全部回滚。',
   /** Printed by bin/index.js when a ScriptError carries a cause */
   causedBy: '底层原因：',
 } as const
@@ -75,18 +75,18 @@ export const MESSAGES = {
  */
 export const MESSAGE_FOR = {
   /** A config file of ours was not written because the project already has one */
-  keptCommitlint: (existing: string) => `Kept your commitlint config — ${existing} already exists.`,
-  keptLintStaged: (existing: string) => `Kept your lint-staged config — ${existing} already exists.`,
+  keptCommitlint: (existing: string) => `已保留你的 commitlint 配置 —— ${existing} 已存在。`,
+  keptLintStaged: (existing: string) => `已保留你的 lint-staged 配置 —— ${existing} 已存在。`,
   /** Our command was added to a hook the user already had */
-  hookAppended: (hook: string) => `${hook} already exists — appended our command to your version.`,
+  hookAppended: (hook: string) => `${hook} 已存在 —— 已把我们的命令追加到你的内容之后。`,
   /** The hook already contains our command — the idempotency signal on a re-run */
-  hookUnchanged: (hook: string) => `${hook} already runs our command, left as is.`,
-  unknownLinter: (value: string) => `Unknown --linter value "${value}"; falling back to auto-detect.`,
+  hookUnchanged: (hook: string) => `${hook} 已经在跑我们的命令，保持原样。`,
+  unknownLinter: (value: string) => `无法识别的 --linter 取值 "${value}"，改用自动探测。`,
   unknownOption: (flag: string) => `未知参数：--${flag}。`,
 } as const
 
 /** How `planConfigWrite` names a config that lives in a package.json field */
 export const PKG_FIELD = {
-  lintStaged: 'the package.json "lint-staged" field',
-  commitlint: 'the package.json "commitlint" field',
+  lintStaged: 'package.json 的 "lint-staged" 字段',
+  commitlint: 'package.json 的 "commitlint" 字段',
 } as const

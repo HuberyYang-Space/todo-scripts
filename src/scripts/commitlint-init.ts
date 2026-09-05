@@ -7,6 +7,7 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 import yoctoSpinner from 'yocto-spinner'
 import { CONFIG_COMMITLINT, CONFIG_COMMITLINT_CZGIT } from '@/constants'
+import { MSG, MSG_FOR } from '@/constants/messages'
 import { execCommand, getPackageJSON, isInteractive, isTsProject, printInfo, printWarn, writePackageJSON } from '@/utils'
 import { detectLinter, getFixCommand, isLinterInstalled, isLinterKind, renderLintStagedConfig } from '@/utils/linter'
 import { createPackageManager } from '@/utils/package-manager'
@@ -94,7 +95,7 @@ export function detectHuskyV4(
 
   const field = pkg.husky as { hooks?: Record<string, string> } | undefined
   if (field)
-    return { source: 'the package.json "husky" field', hooks: field.hooks ?? {} }
+    return { source: MSG.pkgFieldHusky, hooks: field.hooks ?? {} }
 
   return undefined
 }
@@ -170,7 +171,7 @@ export function patchPackageJSON(pkg: PackageJsonLike, options: ArgvOptions): Pa
 
 /** A config we would generate, or the reason we are leaving the project's own alone */
 function planConfigWrite(existing: string | undefined): { write: boolean, reason?: string } {
-  return existing ? { write: false, reason: `${existing} already exists` } : { write: true }
+  return existing ? { write: false, reason: MSG_FOR.configExists(existing) } : { write: true }
 }
 
 /**
@@ -272,9 +273,9 @@ export function surveyProject(
   },
 ): ProjectSurvey {
   const existingCommitlint = findExistingConfig(COMMITLINT_CONFIG_FILES, env.exists)
-    ?? (env.pkg.commitlint ? 'the package.json "commitlint" field' : undefined)
+    ?? (env.pkg.commitlint ? MSG.pkgFieldCommitlint : undefined)
   const existingLintStaged = findExistingConfig(LINT_STAGED_CONFIG_FILES, env.exists)
-    ?? (env.pkg['lint-staged'] ? 'the package.json "lint-staged" field' : undefined)
+    ?? (env.pkg['lint-staged'] ? MSG.pkgFieldLintStaged : undefined)
 
   return {
     needsGitInit: !env.exists('.git'),
@@ -295,20 +296,20 @@ async function resolveLinterChoice(options: ArgvOptions): Promise<LinterKind | '
   if (flag && isLinterKind(flag))
     return flag
   if (flag)
-    printWarn(`Unknown --linter value "${options.linter}"; falling back to auto-detect.`)
+    printWarn(MSG_FOR.unknownLinter(String(options.linter)))
 
   const detected = detectLinter()
   if (detected)
     return detected
 
   if (!isInteractive()) {
-    printWarn('No linter detected, and no interactive terminal to ask — skipping the lint-staged rule; edit lint-staged.config.mjs yourself.')
+    printWarn(MSG.noLinterNonInteractive)
     return 'none'
   }
 
   const answer = await promptLinterChoice()
   if (answer === undefined) {
-    printWarn('Prompt cancelled — skipping the lint-staged rule.')
+    printWarn(MSG.promptCancelled)
     return 'none'
   }
   return answer
@@ -341,7 +342,7 @@ export async function init(options: ArgvOptions) {
   catch (error) {
     // Leaving a half-configured project behind is worse than the failure itself
     await journal.rollback()
-    printWarn('Setup failed — the files this script had written were rolled back.')
+    printWarn(MSG.rollbackDone)
     throw error
   }
 }
@@ -361,46 +362,46 @@ async function runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice,
   if (survey.huskyV4) {
     const hooks = Object.entries(survey.huskyV4.hooks)
     const detail = hooks.length
-      ? ` It defines: ${hooks.map(([name, command]) => `${name} -> ${command}`).join('; ')}.`
+      ? MSG_FOR.huskyV4Detail(hooks.map(([name, command]) => `${name} -> ${command}`).join('；'))
       : ''
-    printWarn(`Found husky v4 config in ${survey.huskyV4.source}, which husky 9 does not read — those hooks are not running.${detail} Migrate them into .husky/ and delete the old config.`)
+    printWarn(MSG_FOR.huskyV4Found(survey.huskyV4.source, detail))
   }
 
   if (survey.needsGitInit) {
-    spinner.start('git init checking...')
+    spinner.start(MSG.spinnerGitInitStart)
     await execCommand('git init')
-    spinner.success('git init down!')
+    spinner.success(MSG.spinnerGitInitDone)
   }
 
-  spinner.start('install running')
+  spinner.start(MSG.spinnerInstallStart)
   await pm.ensureInstalled(plan.packages, { dev: true })
-  spinner.success('install succeed!')
+  spinner.success(MSG.spinnerInstallDone)
 
-  spinner.start('commitlint config running...')
+  spinner.start(MSG.spinnerCommitlintStart)
   const { name, content } = plan.configFile
   if (!survey.commitlint.write) {
     spinner.stop()
-    printInfo(`Kept your commitlint config — ${survey.commitlint.reason}.`)
+    printInfo(MSG_FOR.keptCommitlint(survey.commitlint.reason!))
   }
   else {
     journal.capture(name)
     await w(name, content)
-    spinner.success('commitlint config succeed!')
+    spinner.success(MSG.spinnerCommitlintDone)
   }
 
-  spinner.start('lint-staged config running...')
+  spinner.start(MSG.spinnerLintStagedStart)
   const { name: lintStagedName, content: lintStagedContent } = plan.lintStagedConfigFile
   if (!survey.lintStaged.write) {
     spinner.stop()
-    printInfo(`Kept your lint-staged config — ${survey.lintStaged.reason}.`)
+    printInfo(MSG_FOR.keptLintStaged(survey.lintStaged.reason!))
   }
   else {
     journal.capture(lintStagedName)
     await w(lintStagedName, lintStagedContent)
-    spinner.success('lint-staged config succeed!')
+    spinner.success(MSG.spinnerLintStagedDone)
   }
 
-  spinner.start('husky config running...')
+  spinner.start(MSG.spinnerHuskyStart)
   for (const hook of survey.hooks)
     journal.capture(hook.path)
   await pm.exec('husky init')
@@ -409,22 +410,22 @@ async function runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice,
     // with our command appended, so their hook keeps working and ours actually runs
     await w(resolve(cwd, hook.path), hook.content)
     if (hook.action === 'appended')
-      printWarn(`${hook.path} already exists — appended our command to your version.`)
+      printWarn(MSG_FOR.hookAppended(hook.path))
     else if (hook.action === 'unchanged')
-      printInfo(`${hook.path} already runs our command, left as is.`)
+      printInfo(MSG_FOR.hookUnchanged(hook.path))
   }
-  spinner.success('husky config succeed!')
+  spinner.success(MSG.spinnerHuskyDone)
 
-  spinner.start('package.json writing...')
+  spinner.start(MSG.spinnerPkgJsonStart)
   journal.capture('package.json')
   // husky init may have just written scripts.prepare into package.json, so this must
   // re-read rather than reuse the snapshot taken by surveyProject above — otherwise
   // husky's write would get overwritten
   await writePackageJSON(patchPackageJSON(getPackageJSON(), options))
-  spinner.success('package.json writing succeed!')
+  spinner.success(MSG.spinnerPkgJsonDone)
 
   if (linterChoice !== 'none' && isLinterInstalled(linterChoice)) {
-    spinner.start('lint running')
+    spinner.start(MSG.spinnerLintStart)
     // Run the project's local linter directly instead of stashing a temp script into
     // package.json; a formatting failure here doesn't affect setup, the config files are
     // already written by this point
@@ -432,6 +433,6 @@ async function runSetup({ options, plan, survey, pm, spinner, cwd, linterChoice,
     if (survey.lintStaged.write || existsSync(resolve(cwd, lintStagedName)))
       lintTargets.push(lintStagedName)
     await pm.exec(getFixCommand(linterChoice, lintTargets), { allowFailure: true })
-    spinner.success('lint down!')
+    spinner.success(MSG.spinnerLintDone)
   }
 }

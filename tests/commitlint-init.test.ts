@@ -144,7 +144,9 @@ describe('commitlint-init init()', () => {
     vi.mocked(existsSync).mockImplementation(p => String(p).includes('commitlint.config'))
     await init({})
     expect(writeFile).not.toHaveBeenCalledWith(expect.stringContaining('commitlint.config'), expect.anything())
-    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining('already exists'))
+    expect(printInfoMock).toHaveBeenCalledWith(
+      expect.stringContaining('已保留你的 commitlint 配置 —— commitlint.config.ts 已存在。'),
+    )
   })
 
   it('husky hooks 已存在时应该在保留用户原内容的基础上追加我们的命令', async () => {
@@ -193,7 +195,7 @@ describe('commitlint-init init()', () => {
     expect(writeFile).not.toHaveBeenCalledWith('lint-staged.config.mjs', expect.anything())
     // 断言必须锚定到「沿用你的配置」这句本身：只匹配 'lint-staged' 会被
     // resolveLinterChoice 那条无关警告（…skipping the lint-staged rule）撞上而假通过
-    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining('the package.json "lint-staged" field'))
+    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining('package.json 的 "lint-staged" 字段'))
     const written = writePackageJSONMock.mock.calls[0][0]
     expect(written['lint-staged']).toEqual({ '*.ts': 'my-own-linter' })
   })
@@ -349,7 +351,9 @@ describe('commitlint-init init()', () => {
       isInteractiveMock.mockReturnValue(false)
       await init({})
       expect(promptLinterChoiceMock).not.toHaveBeenCalled()
-      expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('No linter detected'))
+      expect(printWarnMock).toHaveBeenCalledWith(
+        expect.stringContaining('未探测到 linter，当前也不是交互式终端无法询问'),
+      )
     })
 
     it('交互提示被取消时应该跳过并给出警告', async () => {
@@ -357,7 +361,9 @@ describe('commitlint-init init()', () => {
       isInteractiveMock.mockReturnValue(true)
       promptLinterChoiceMock.mockResolvedValue(undefined)
       await init({})
-      expect(printWarnMock).toHaveBeenCalledWith(expect.stringContaining('cancelled'))
+      expect(printWarnMock).toHaveBeenCalledWith(
+        expect.stringContaining('已取消选择 —— 跳过 lint-staged 规则。'),
+      )
       expect(pmExecMock).not.toHaveBeenCalledWith(expect.stringContaining('--fix'), expect.anything())
     })
 
@@ -380,8 +386,9 @@ describe('提示分级', () => {
     // 「沿用你已有的配置」是正确结果而不是出错，用 WARN 渲染会让人以为哪里坏了
     vi.mocked(existsSync).mockImplementation(p => String(p).includes('.commitlintrc.json'))
     await init({})
-    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining('commitlint config'))
-    expect(printWarnMock).not.toHaveBeenCalledWith(expect.stringContaining('commitlint config'))
+    const kept = '已保留你的 commitlint 配置 —— .commitlintrc.json 已存在。'
+    expect(printInfoMock).toHaveBeenCalledWith(expect.stringContaining(kept))
+    expect(printWarnMock).not.toHaveBeenCalledWith(expect.stringContaining(kept))
   })
 
   it('改动了用户的钩子文件仍然应该是警告', async () => {
