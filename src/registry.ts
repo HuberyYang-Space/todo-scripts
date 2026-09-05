@@ -11,7 +11,6 @@ export interface FlagSpec {
   placeholder?: string
   /** One-line description shown in help text */
   summary: string
-  summaryEn: string
 }
 
 export interface Script {
@@ -19,7 +18,6 @@ export interface Script {
   name: string
   /** One-line description shown in help text */
   summary: string
-  summaryEn: string
   /** Flags this subcommand accepts, on top of GLOBAL_FLAGS */
   flags?: FlagSpec[]
   /** Lazily loads the script implementation */
@@ -37,20 +35,17 @@ export const GLOBAL_FLAGS: FlagSpec[] = [
     type: 'boolean',
     alias: 'h',
     summary: '查看帮助',
-    summaryEn: 'show help',
   },
   {
     name: 'version',
     type: 'boolean',
     alias: 'v',
     summary: '查看版本号',
-    summaryEn: 'show version',
   },
   {
     name: 'clear',
     type: 'boolean',
     summary: '清洁执行 - 执行完脚本后卸载模块',
-    summaryEn: 'uninstall the module after running',
   },
 ]
 
@@ -65,20 +60,17 @@ export const SCRIPTS: Script[] = [
   {
     name: 'commitlint-init',
     summary: '一键生成 commitlint + husky + lint-staged 配置',
-    summaryEn: 'Scaffold commitlint + husky + lint-staged config in one command',
     flags: [
       {
         name: 'czgit',
         type: 'boolean',
         summary: '配置 cz-git',
-        summaryEn: 'enable cz-git',
       },
       {
         name: 'linter',
         type: 'string',
         placeholder: '<eslint|biome|oxlint|none>',
         summary: '指定 lint-staged 检查工具，跳过自动探测和交互询问',
-        summaryEn: 'specify the linter for lint-staged, skipping auto-detect and the prompt',
       },
     ],
     load: () => import('./scripts/commitlint-init'),
@@ -106,7 +98,7 @@ function renderFlagLines(flags: FlagSpec[]): string {
     .map((flag) => {
       const short = flag.alias ? `-${flag.alias}, ` : ''
       const value = flag.placeholder ? `=${flag.placeholder}` : ''
-      return `  ${`${short}--${flag.name}${value}`.padEnd(38)}${flag.summary} / ${flag.summaryEn}`
+      return `  ${`${short}--${flag.name}${value}`.padEnd(38)}${flag.summary}`
     })
     .join('\n')
 }
@@ -121,22 +113,21 @@ function renderFlagLines(flags: FlagSpec[]): string {
  */
 export function renderHelp(): string {
   const commands = SCRIPTS
-    .map(({ name, summary, summaryEn }) => `  ${green(name)}\n      ${summary}\n      ${summaryEn}`)
+    .map(({ name, summary }) => `  ${green(name)}\n      ${summary}`)
     .join('\n')
 
   return `\
 一些帮助简化前端配置工程的通用脚本
-Utility scripts to simplify frontend project configuration
 
-用法 / Usage: hubery <script> [参数/options]...
+用法：hubery <script> [参数]...
 
-可用指令 / Available commands:
+可用指令：
 ${commands}
 
-全局参数 / Global options:
+全局参数：
 ${renderFlagLines(GLOBAL_FLAGS)}
 
-查看某个指令自己的参数 / See a command's own options:
+查看某个指令自己的参数：
   hubery <script> --help
 `
 }
@@ -144,17 +135,16 @@ ${renderFlagLines(GLOBAL_FLAGS)}
 /** Renders the help text for one subcommand, including the global flags */
 export function renderScriptHelp(script: Script): string {
   const own = script.flags?.length
-    ? `参数 / Options:\n${renderFlagLines(script.flags)}\n\n`
+    ? `参数：\n${renderFlagLines(script.flags)}\n\n`
     : ''
 
   return `\
 ${green(script.name)}
   ${script.summary}
-  ${script.summaryEn}
 
-用法 / Usage: hubery ${script.name} [参数/options]...
+用法：hubery ${script.name} [参数]...
 
-${own}全局参数 / Global options:
+${own}全局参数：
 ${renderFlagLines(GLOBAL_FLAGS)}
 `
 }
