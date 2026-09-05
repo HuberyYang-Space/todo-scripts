@@ -139,7 +139,7 @@ describe('失败回滚', () => {
     expect(result.stdout).toContain(MESSAGES.causedBy)
     // 光有「Caused by:」还不够——真正要钉住的是它后面接了底层报错的内容，
     // 只断言标签的话，打印一个空 cause 也能通过
-    expect(result.stdout).toMatch(/Caused by: \S/)
+    expect(result.stdout).toMatch(/底层原因：\S/)
     // 配置文件在 husky 那一步之前就写好了，失败后必须被撤销，
     // 否则项目会停在「有 commitlint 配置但没有钩子」的半配置状态
     expect(fixture.exists('commitlint.config.ts')).toBe(false)

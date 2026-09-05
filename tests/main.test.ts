@@ -71,13 +71,13 @@ describe('main', () => {
     process.argv = ['node', 'hubery', 'not-a-script']
     // main() itself never terminates the process; exiting is left to bin/index.js
     await expect(main()).rejects.toThrow(ScriptError)
-    await expect(main()).rejects.toThrow('Please use a script.')
+    await expect(main()).rejects.toThrow('请指定一个要执行的脚本。')
     expect(initMock).not.toHaveBeenCalled()
   })
 
   it('不传脚本名时应该抛出 ScriptError', async () => {
     process.argv = ['node', 'hubery']
-    await expect(main()).rejects.toThrow('Please use a script.')
+    await expect(main()).rejects.toThrow('请指定一个要执行的脚本。')
   })
 
   it('--clear 时应该在脚本执行完后卸载模块', async () => {

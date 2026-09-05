@@ -20,10 +20,21 @@ export const MSG = {
   cannotFindPackageJson: '当前目录下找不到 package.json。',
   parsePackageJsonFailed: '解析 package.json 失败。',
   writePackageJsonFailed: '写入 package.json 失败。',
+
+  // —— CLI 主流程 ——
+  noScript: '请指定一个要执行的脚本。',
+  processStart: '流程开始',
+  clearDone: '清理完成！',
 } as const
 
 /** 需要嵌入文件名 / 取值的文案 */
 export const MSG_FOR = {
   execFailed: (command: string) => `执行 '${command}' 失败。`,
   uninstallFailed: (pkg: string) => `卸载 ${pkg} 失败。`,
+
+  /** 未知参数。中文没有单复数变化，原实现区分 option/options 的三元一并去掉 */
+  unknownOption: (list: string, script: string) =>
+    `未知参数：${list}。运行 \`hubery ${script} --help\` 查看支持的参数。`,
+  processDone: (seconds: string) => `流程结束，耗时 ${seconds}s`,
+  causedBy: (detail: string) => `底层原因：${detail}`,
 } as const

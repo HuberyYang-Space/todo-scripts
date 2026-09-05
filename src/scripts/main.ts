@@ -5,10 +5,12 @@ import mri from 'mri'
 import colors from 'picocolors'
 import spinner from 'yocto-spinner'
 import { DEFAULT_PKG_NAME } from '@/constants'
+import { MSG, MSG_FOR } from '@/constants/messages'
 import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '@/registry'
 import { banner, getCliVersion, ScriptError } from '@/utils'
 import { createPackageManager } from '@/utils/package-manager'
 
+export { MSG_FOR } from '@/constants/messages'
 /**
  * Re-exported for bin/index.js to consume
  *
@@ -70,28 +72,28 @@ export async function main() {
   }
 
   if (!script)
-    throw new ScriptError('Please use a script.')
+    throw new ScriptError(MSG.noScript)
 
   // mri silently swallows anything it wasn't told about, so a typo like --czgti
   // would otherwise run the script with default behaviour and no warning
   const unknown = findUnknownFlags(options, script)
   if (unknown.length) {
     const list = unknown.map(flag => `--${flag}`).join(', ')
-    throw new ScriptError(`Unknown option${unknown.length > 1 ? 's' : ''}: ${list}. Run \`hubery ${script.name} --help\` to see what is supported.`)
+    throw new ScriptError(MSG_FOR.unknownOption(list, script.name))
   }
 
   const { init } = await script.load()
   const startTime = Date.now()
-  console.log(`⚡️ ${bold(green('Process Start'))}\n`)
+  console.log(`⚡️ ${bold(green(MSG.processStart))}\n`)
 
   await init(options)
 
   const endTime = Date.now()
   const elapsedTime = ((endTime - startTime) / 1000).toFixed(1)
-  console.log(`\n✨ ${green(bold('Process Down')) + bold(` in ${elapsedTime}s`)}\n`)
+  console.log(`\n✨ ${green(bold(MSG_FOR.processDone(elapsedTime)))}\n`)
   // Check whether to uninstall
   if (options.clear) {
     await createPackageManager().uninstall(DEFAULT_PKG_NAME)
-    spinner().success(`clear down!`)
+    spinner().success(MSG.clearDone)
   }
 }

@@ -53,17 +53,17 @@ export const MESSAGES = {
   noLinterNonInteractive: 'No linter detected, and no interactive terminal to ask',
   promptCancelled: 'Prompt cancelled — skipping the lint-staged rule.',
   unknownLinterPrefix: 'Unknown --linter value',
-  noScript: 'Please use a script.',
+  noScript: '请指定一个要执行的脚本。',
   missingPackageJson: 'Cannot find package.json',
   lintRunning: 'lint running',
   lintDone: 'lint down!',
   gitInitChecking: 'git init checking...',
   gitInitDone: 'git init down!',
-  processDone: 'Process Down',
+  processDone: '流程结束',
   commitlintConfigDone: 'commitlint config succeed',
   rollbackDone: 'Setup failed — the files this script had written were rolled back.',
   /** Printed by bin/index.js when a ScriptError carries a cause */
-  causedBy: 'Caused by:',
+  causedBy: '底层原因：',
 } as const
 
 /**
@@ -82,7 +82,7 @@ export const MESSAGE_FOR = {
   /** The hook already contains our command — the idempotency signal on a re-run */
   hookUnchanged: (hook: string) => `${hook} already runs our command, left as is.`,
   unknownLinter: (value: string) => `Unknown --linter value "${value}"; falling back to auto-detect.`,
-  unknownOption: (flag: string) => `Unknown option: --${flag}.`,
+  unknownOption: (flag: string) => `未知参数：--${flag}。`,
 } as const
 
 /** How `planConfigWrite` names a config that lives in a package.json field */
