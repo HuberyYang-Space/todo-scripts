@@ -62,7 +62,7 @@ export function getFixCommand(kind: LinterKind, targets: string[]): string {
 export function renderLintStagedConfig(choice: LinterKind | 'none'): string {
   if (choice === 'none') {
     return `export default {
-  // No linter detected, and none selected — replace with your own rule, e.g.:
+  // 未探测到 linter，也没有选择 —— 请替换成你自己的规则，例如：
   // '*': 'eslint --fix --no-error-on-unmatched-pattern',
   '*': [],
 }

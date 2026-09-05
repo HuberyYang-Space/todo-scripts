@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { describe, expect, it } from 'vitest'
 import {
   CONFIG_COMMITLINT,
@@ -91,10 +92,12 @@ describe('config_COMMITLINT_CZGIT', () => {
     expect(CONFIG_COMMITLINT_CZGIT).toContain('填写简短精炼的变更描述')
   })
 
-  it('types 数组中每项应该同时包含中英文说明', () => {
-    // Every type should have a name in the "Chinese | English" format
-    expect(CONFIG_COMMITLINT_CZGIT).toContain('新增功能 | A new feature')
-    expect(CONFIG_COMMITLINT_CZGIT).toContain('修复缺陷 | A bug fix')
+  it('types 数组每项应该是纯中文说明', () => {
+    expect(CONFIG_COMMITLINT_CZGIT).toContain(`name: 'feat:     新增功能'`)
+    expect(CONFIG_COMMITLINT_CZGIT).toContain(`name: 'fix:      修复缺陷'`)
+    // 砍掉双语后不该再有 "中文 | English" 这种并排格式，
+    // 断言分隔符本身而不是逐个列举英文词——后者漏一个就放过去了
+    expect(CONFIG_COMMITLINT_CZGIT).not.toContain(' | ')
   })
 })
 
@@ -124,5 +127,42 @@ describe('两份模板的收尾格式', () => {
     // 少一个末尾换行会被 linter 和 POSIX 工具挑刺，而且两份模板收尾风格不该不一致
     expect(CONFIG_COMMITLINT.endsWith('\n')).toBe(true)
     expect(CONFIG_COMMITLINT_CZGIT.endsWith('\n')).toBe(true)
+  })
+})
+
+/**
+ * 把模板当成真正的模块跑一遍，而不是当字符串搜关键字
+ *
+ * 上面所有断言都是 toContain，只看子串在不在——模板要是被改成了语法不合法的
+ * JS（少个引号、转义写坏），它们照样全绿，而用户拿到的是一份 import 就报错的
+ * 配置文件。走 data: URL 求值，既真的执行了模板，又不用碰文件系统。
+ */
+async function evaluateTemplate(template: string) {
+  const url = `data:text/javascript;base64,${Buffer.from(template).toString('base64')}`
+  const mod = await import(/* @vite-ignore */ url)
+  return mod.default
+}
+
+describe('模板本身应该是可执行的合法 ESM', () => {
+  it('cONFIG_COMMITLINT 可以被 import 且结构完整', async () => {
+    const config = await evaluateTemplate(CONFIG_COMMITLINT)
+    expect(config.extends).toEqual(['@commitlint/config-conventional'])
+    expect(config.rules['type-enum'][2]).toHaveLength(11)
+  })
+
+  it('cONFIG_COMMITLINT_CZGIT 可以被 import 且 prompt 配置完整', async () => {
+    const config = await evaluateTemplate(CONFIG_COMMITLINT_CZGIT)
+    expect(config.rules['type-enum'][2]).toHaveLength(11)
+    expect(config.prompt.types).toHaveLength(11)
+    expect(config.prompt.messages.type).toBe('选择你要提交的类型：')
+    expect(config.prompt.types[0].name).toBe('feat:     新增功能')
+  })
+
+  it('czgit 模板里的换行转义应该原样传给 cz-git', async () => {
+    // 模板源码里写的是 \\n（两层转义），求值后必须仍是「反斜杠 + n」在字符串里，
+    // 也就是生成的配置文件里那个 \n 转义；一旦被写成真实换行，模板就破了
+    const config = await evaluateTemplate(CONFIG_COMMITLINT_CZGIT)
+    expect(config.prompt.messages.subject).toBe('填写简短精炼的变更描述：\n')
+    expect(config.prompt.messages.subject.endsWith('\n')).toBe(true)
   })
 })

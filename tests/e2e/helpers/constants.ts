@@ -35,7 +35,7 @@ export const LINT_STAGED_CONFIG: Record<FakeLinter | 'none', string> = {
   biome: `export default {\n  '*': 'biome check --write --no-errors-on-unmatched',\n}\n`,
   oxlint: `export default {\n  '*': 'oxlint --fix --no-error-on-unmatched-pattern',\n}\n`,
   none: `export default {\n`
-    + `  // No linter detected, and none selected — replace with your own rule, e.g.:\n`
+    + `  // 未探测到 linter，也没有选择 —— 请替换成你自己的规则，例如：\n`
     + `  // '*': 'eslint --fix --no-error-on-unmatched-pattern',\n`
     + `  '*': [],\n`
     + `}\n`,
