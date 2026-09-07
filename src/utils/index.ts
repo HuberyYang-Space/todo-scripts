@@ -13,14 +13,7 @@ import terminalLink from 'terminal-link'
 import { parse as parseYaml } from 'yaml'
 import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
 import { MSG, MSG_FOR } from '@/constants/messages'
-
-export interface ArgvOptions {
-  clear?: boolean
-  czgit?: boolean
-  help?: boolean
-  version?: boolean
-  linter?: string
-}
+import { printLine } from '@/utils/logger'
 
 export interface PackageJsonLike {
   'scripts'?: Record<string, string>
@@ -35,7 +28,7 @@ export interface PackageJsonLike {
   [key: string]: any
 }
 
-const { bold, dim, bgYellow, bgRed, bgCyan, isColorSupported } = colors
+const { bold, dim, isColorSupported } = colors
 
 const BRAND_NAME = 'TODO-SCRIPT'
 const BANNER_FONT_NAME = 'todo-script-banner'
@@ -57,30 +50,6 @@ export class ScriptError extends Error {
     super(message, options)
     this.name = 'ScriptError'
   }
-}
-
-export function printWarn(msg: string) {
-  console.log(' ')
-  console.log(`${bgYellow(' WARN ')} ${msg}`)
-  console.log(' ')
-}
-
-/**
- * 中性提示，用于「结果正确」而非「需要担心」的情况
- *
- * 跳过项目已有的配置是这个工具在正常工作，不是警告 —— 用警告黄渲染会让人读成
- * 「哪里出错了」，久而久之就学会了无视真正要紧的那些消息。
- */
-export function printInfo(msg: string) {
-  console.log(' ')
-  console.log(`${bgCyan(' INFO ')} ${msg}`)
-  console.log(' ')
-}
-
-export function printErr(msg: string) {
-  console.log(' ')
-  console.log(`${bgRed(' ERROR ')} ${msg}`)
-  console.log(' ')
 }
 
 /**
@@ -121,17 +90,17 @@ export function banner() {
   const canRenderGradient = isColorSupported && Boolean(process.stdout.isTTY)
   const mode = resolveBannerMode(process.stdout.columns ?? 0, canRenderGradient)
 
-  console.log('')
+  printLine()
   if (mode === 'gradient') {
     if (!isBannerFontRegistered) {
       figlet.parseFont(BANNER_FONT_NAME, bannerFont)
       isBannerFontRegistered = true
     }
     const wordmark = figlet.textSync(BRAND_NAME, { font: BANNER_FONT_NAME })
-    console.log(gradient(BANNER_GRADIENT_COLORS).multiline(wordmark))
+    printLine(gradient(BANNER_GRADIENT_COLORS).multiline(wordmark))
   }
   else {
-    console.log(bold(BRAND_NAME))
+    printLine(bold(BRAND_NAME))
   }
 
   const isSupportLink = terminalLink.isSupported
@@ -141,10 +110,10 @@ export function banner() {
   if (isSupportLink)
     versionText = terminalLink(versionText, `https://www.npmjs.com/package/${DEFAULT_PKG_NAME}`)
 
-  console.log(`${versionText} ${dim('-')} ${authorText}`)
+  printLine(`${versionText} ${dim('-')} ${authorText}`)
   if (!isSupportLink)
-    console.log(dim(`(${REPO_URL})`))
-  console.log('')
+    printLine(dim(`(${REPO_URL})`))
+  printLine()
 }
 
 /**
@@ -169,10 +138,38 @@ function getPkgInfo() {
   }
 }
 
-export async function execCommand(command: string) {
+export interface ExecOptions {
+  /** 子进程的工作目录，不传就继承当前进程 */
+  cwd?: string
+  /** 传给子进程的环境变量 */
+  env?: Record<string, string>
+}
+
+export interface ExecResult {
+  stdout: string
+  stderr: string
+  exitCode: number
+}
+
+/**
+ * 跑一条命令，并把执行结果带回来
+ *
+ * 不传 options 时必须原样调用 `execa(file, args)`：多传一个 undefined 会让测试里
+ * 所有「execa 是用什么参数调的」断言失效，而那些断言正是默认路径没被改坏的保护。
+ * allowFailure 刻意留在 PackageManager.exec 那一层 —— 挪下来就得给 execa 传
+ * `reject: false`，又会多出第三个参数。
+ */
+export async function execCommand(command: string, options?: ExecOptions): Promise<ExecResult> {
   const [file, ...commandArguments] = parseCommandString(command)
   try {
-    await execa(file, commandArguments)
+    const result = options
+      ? await execa(file, commandArguments, { cwd: options.cwd, env: options.env })
+      : await execa(file, commandArguments)
+    return {
+      stdout: result.stdout as string,
+      stderr: result.stderr as string,
+      exitCode: result.exitCode ?? 0,
+    }
   }
   catch (e) {
     throw new ScriptError(MSG_FOR.execFailed(command), { cause: e })

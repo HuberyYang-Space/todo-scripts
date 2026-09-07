@@ -27,11 +27,20 @@ const getPackageJSONMock = vi.fn((): PackageJsonLike => pkgState)
 vi.mock('@/utils', () => ({
   execCommand: execCommandMock,
   getPackageJSON: getPackageJSONMock,
-  isInteractive: isInteractiveMock,
   isTsProject: isTsProjectMock,
+  writePackageJSON: writePackageJSONMock,
+}))
+
+// 终端输出搬进 logger 之后，这两个从 @/utils 的 mock 里挪到这里
+vi.mock('@/utils/logger', () => ({
   printInfo: printInfoMock,
   printWarn: printWarnMock,
-  writePackageJSON: writePackageJSONMock,
+  createSpinner: () => ({
+    start: vi.fn(),
+    success: vi.fn(),
+    stop: vi.fn(),
+    run: async (_texts: unknown, fn: () => Promise<unknown>) => fn(),
+  }),
 }))
 
 const detectLinterMock = vi.fn((): LinterKind | undefined => undefined)
@@ -54,6 +63,8 @@ const promptLinterChoiceMock = vi.fn(async (): Promise<LinterKind | 'none' | und
 
 vi.mock('@/utils/prompt', () => ({
   promptLinterChoice: promptLinterChoiceMock,
+  // 交互判定收进 prompt 层之后，脚本问的是 canPrompt —— 沿用同一个 mock
+  canPrompt: isInteractiveMock,
 }))
 
 // 包管理器唯一的接缝：脚本只经由它和 npm/pnpm/yarn 打交道

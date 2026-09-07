@@ -10,7 +10,11 @@ vi.mock('@clack/prompts', () => ({
   cancel: cancelMock,
 }))
 
-const { promptLinterChoice } = await import('@/utils/prompt')
+// 只借 isInteractive 这一个判定，不把 figlet/gradient 那一整串依赖拉进来
+const isInteractiveMock = vi.fn(() => true)
+vi.mock('@/utils', () => ({ isInteractive: isInteractiveMock }))
+
+const { canPrompt, promptLinterChoice, promptSelect } = await import('@/utils/prompt')
 
 describe('promptLinterChoice', () => {
   it('应该把 select 的结果原样返回', async () => {
@@ -55,5 +59,33 @@ describe('promptLinterChoice', () => {
     // 「跳过」那一项同样不该再拖一句英文
     const none = call.options.find((o: { value: string }) => o.value === 'none')
     expect(none.label).toBe('跳过 —— 我自己配置')
+  })
+})
+
+describe('canPrompt', () => {
+  it('可交互时应该返回 true', () => {
+    isInteractiveMock.mockReturnValue(true)
+    expect(canPrompt()).toBe(true)
+  })
+
+  it('不可交互时应该返回 false', () => {
+    isInteractiveMock.mockReturnValue(false)
+    expect(canPrompt()).toBe(false)
+  })
+})
+
+describe('promptSelect', () => {
+  it('应该把用户的选择原样返回', async () => {
+    selectMock.mockResolvedValue('a')
+    isCancelMock.mockReturnValue(false)
+    expect(await promptSelect({ message: '选一个', options: [{ value: 'a', label: 'A' }] })).toBe('a')
+  })
+
+  it('用户取消时应该返回 undefined，并调用 cancel 提示', async () => {
+    const cancelSymbol = Symbol('cancel')
+    selectMock.mockResolvedValue(cancelSymbol)
+    isCancelMock.mockImplementation(value => value === cancelSymbol)
+    expect(await promptSelect({ message: '选一个', options: [{ value: 'a', label: 'A' }] })).toBeUndefined()
+    expect(cancelMock).toHaveBeenCalled()
   })
 })

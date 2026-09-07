@@ -1,4 +1,4 @@
-import type { ArgvOptions } from '@/utils'
+import type { ParsedOptions } from '@/types'
 import { green } from 'picocolors'
 
 export interface FlagSpec {
@@ -21,7 +21,7 @@ export interface Script {
   /** 这个子命令在 GLOBAL_FLAGS 之外还接受的参数 */
   flags?: FlagSpec[]
   /** 惰性加载脚本实现 */
-  load: () => Promise<{ init: (options: ArgvOptions) => Promise<void> }>
+  load: () => Promise<{ init: (options: ParsedOptions) => Promise<void> }>
 }
 
 /**
