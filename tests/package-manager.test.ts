@@ -7,7 +7,8 @@ import { createPackageManager, getPkgManager } from '@/utils/package-manager'
 
 vi.mock('execa', async importOriginal => ({
   ...await importOriginal<typeof import('execa')>(),
-  execa: vi.fn(async () => {}),
+  // 返回 execa 真实结果的形状：execCommand 现在会读取它
+  execa: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })),
 }))
 /** 记录 spinner 收到的文案，好断言卸载过程的提示确实换成了中文 */
 const spinnerText = vi.hoisted(() => ({

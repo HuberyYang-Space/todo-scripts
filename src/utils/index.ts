@@ -169,10 +169,38 @@ function getPkgInfo() {
   }
 }
 
-export async function execCommand(command: string) {
+export interface ExecOptions {
+  /** 子进程的工作目录，不传就继承当前进程 */
+  cwd?: string
+  /** 传给子进程的环境变量 */
+  env?: Record<string, string>
+}
+
+export interface ExecResult {
+  stdout: string
+  stderr: string
+  exitCode: number
+}
+
+/**
+ * 跑一条命令，并把执行结果带回来
+ *
+ * 不传 options 时必须原样调用 `execa(file, args)`：多传一个 undefined 会让测试里
+ * 所有「execa 是用什么参数调的」断言失效，而那些断言正是默认路径没被改坏的保护。
+ * allowFailure 刻意留在 PackageManager.exec 那一层 —— 挪下来就得给 execa 传
+ * `reject: false`，又会多出第三个参数。
+ */
+export async function execCommand(command: string, options?: ExecOptions): Promise<ExecResult> {
   const [file, ...commandArguments] = parseCommandString(command)
   try {
-    await execa(file, commandArguments)
+    const result = options
+      ? await execa(file, commandArguments, { cwd: options.cwd, env: options.env })
+      : await execa(file, commandArguments)
+    return {
+      stdout: result.stdout as string,
+      stderr: result.stderr as string,
+      exitCode: result.exitCode ?? 0,
+    }
   }
   catch (e) {
     throw new ScriptError(MSG_FOR.execFailed(command), { cause: e })

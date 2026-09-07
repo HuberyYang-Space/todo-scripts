@@ -22,7 +22,8 @@ import {
 // 为失败路径的用例准备：execa 和文件写入要能按需失败，spinner 也不能在测试输出里转圈
 vi.mock('execa', async importOriginal => ({
   ...await importOriginal<typeof import('execa')>(),
-  execa: vi.fn(async () => {}),
+  // 返回 execa 真实结果的形状：execCommand 现在会读取它
+  execa: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })),
 }))
 vi.mock('node:fs/promises', () => ({ writeFile: vi.fn(async () => {}) }))
 vi.mock('yocto-spinner', () => ({
@@ -369,5 +370,34 @@ describe('printInfo', () => {
     const printed = spy.mock.calls.map(c => String(c[0])).join('')
     expect(printed).not.toContain(' WARN ')
     spy.mockRestore()
+  })
+})
+
+// ========================================
+// execCommand —— 跑一条命令并把结果带回来
+// ========================================
+describe('execCommand', () => {
+  afterEach(() => {
+    vi.mocked(execa).mockReset()
+  })
+
+  it('应该把子进程的输出带回来', async () => {
+    vi.mocked(execa).mockResolvedValue({ stdout: 'v22.1.0', stderr: '', exitCode: 0 } as never)
+    await expect(execCommand('node --version')).resolves.toEqual({
+      stdout: 'v22.1.0',
+      stderr: '',
+      exitCode: 0,
+    })
+  })
+
+  it('不带选项时不应该给 execa 传第三个参数', async () => {
+    await execCommand('git init')
+    // 多传一个 undefined 会让所有「execa 是用什么参数调的」断言失效，这条专门钉住它
+    expect(execa).toHaveBeenCalledWith('git', ['init'])
+  })
+
+  it('带 cwd/env 时应该透传给 execa', async () => {
+    await execCommand('git status', { cwd: '/tmp/demo', env: { FOO: 'bar' } })
+    expect(execa).toHaveBeenCalledWith('git', ['status'], { cwd: '/tmp/demo', env: { FOO: 'bar' } })
   })
 })
