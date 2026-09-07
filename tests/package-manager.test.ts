@@ -18,9 +18,14 @@ const spinnerText = vi.hoisted(() => ({
 
 vi.mock('yocto-spinner', () => ({
   default: (options?: { text?: string }) => {
+    // 初始文案有两条路径：构造时给 text，或者 start(text)。两条都记下来，
+    // 这样断言盯的是「一开始显示了什么」，而不是它是从哪个入口传进去的
     spinnerText.initial.push(options?.text)
     return {
-      start: vi.fn(function (this: any) { return this }),
+      start: vi.fn(function (this: any, text?: string) {
+        spinnerText.initial.push(text)
+        return this
+      }),
       success: vi.fn((text?: string) => { spinnerText.success.push(text) }),
       stop: vi.fn(),
     }

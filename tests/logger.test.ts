@@ -1,5 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
-import { printErr, printInfo, printLine, printWarn } from '@/utils/logger'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createSpinner, printErr, printInfo, printLine, printWarn } from '@/utils/logger'
+
+// vi.mock 会被提升到文件顶部，所以 stub 必须用 vi.hoisted 一起提上去，
+// 否则工厂执行时它还在暂时性死区里
+const spinnerStub = vi.hoisted(() => ({
+  start: vi.fn(function (this: any) { return this }),
+  success: vi.fn(),
+  stop: vi.fn(),
+}))
+
+vi.mock('yocto-spinner', () => ({ default: () => spinnerStub }))
 
 // ========================================
 // printLine —— stdout 直出的唯一出口
@@ -62,5 +72,34 @@ describe('printInfo', () => {
     const printed = spy.mock.calls.map(c => String(c[0])).join('')
     expect(printed).not.toContain(' WARN ')
     spy.mockRestore()
+  })
+})
+
+// ========================================
+// createSpinner —— 转圈的生命周期由封装保证，不再靠调用方自觉
+// ========================================
+describe('createSpinner', () => {
+  beforeEach(() => {
+    spinnerStub.start.mockClear()
+    spinnerStub.success.mockClear()
+    spinnerStub.stop.mockClear()
+  })
+
+  it('run 成功时应该按 start → success 收尾', async () => {
+    const result = await createSpinner().run({ start: '装依赖', success: '装好了' }, async () => 42)
+    expect(result).toBe(42)
+    expect(spinnerStub.start).toHaveBeenCalledWith('装依赖')
+    expect(spinnerStub.success).toHaveBeenCalledWith('装好了')
+    expect(spinnerStub.stop).not.toHaveBeenCalled()
+  })
+
+  it('run 失败时应该先停掉转圈，再把原始错误抛出去', async () => {
+    const boom = new Error('boom')
+    // 转圈那行不停下来，会和紧随其后的报错抢同一行
+    await expect(createSpinner().run({ start: '装依赖', success: '装好了' }, async () => {
+      throw boom
+    })).rejects.toBe(boom)
+    expect(spinnerStub.stop).toHaveBeenCalled()
+    expect(spinnerStub.success).not.toHaveBeenCalled()
   })
 })

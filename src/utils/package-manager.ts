@@ -1,7 +1,7 @@
 import process from 'node:process'
-import yoctoSpinner from 'yocto-spinner'
 import { MSG, MSG_FOR } from '@/constants/messages'
 import { execCommand, hasDependency, isMonorepo, ScriptError } from '@/utils'
+import { createSpinner } from '@/utils/logger'
 
 export interface PkgInfo {
   name: string
@@ -148,14 +148,14 @@ export function createPackageManager(): PackageManager {
     },
 
     async uninstall(pkg) {
-      const s = yoctoSpinner({ text: MSG.spinnerUninstallStart }).start()
       try {
-        await execCommand(`${name} ${spec.remove}${rootFlag} ${pkg}`)
-        s.success(MSG_FOR.uninstallDone(pkg))
+        // run 负责「失败时先停掉转圈再抛」，这里只管把失败翻译成 ScriptError
+        await createSpinner().run(
+          { start: MSG.spinnerUninstallStart, success: MSG_FOR.uninstallDone(pkg) },
+          () => execCommand(`${name} ${spec.remove}${rootFlag} ${pkg}`),
+        )
       }
       catch (e) {
-        // 抛错前先停掉 spinner，否则报错信息会和转圈那行抢地方
-        s.stop()
         throw new ScriptError(MSG_FOR.uninstallFailed(pkg), { cause: e })
       }
     },

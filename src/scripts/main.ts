@@ -3,12 +3,11 @@ import type { ArgvOptions } from '@/utils'
 import process from 'node:process'
 import mri from 'mri'
 import colors from 'picocolors'
-import spinner from 'yocto-spinner'
 import { DEFAULT_PKG_NAME } from '@/constants'
 import { MSG, MSG_FOR } from '@/constants/messages'
 import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '@/registry'
 import { banner, getCliVersion, ScriptError } from '@/utils'
-import { printLine } from '@/utils/logger'
+import { createSpinner, printLine } from '@/utils/logger'
 import { createPackageManager } from '@/utils/package-manager'
 
 export { MSG_FOR } from '@/constants/messages'
@@ -95,6 +94,6 @@ export async function main() {
   // 看看要不要卸载自己
   if (options.clear) {
     await createPackageManager().uninstall(DEFAULT_PKG_NAME)
-    spinner().success(MSG.clearDone)
+    createSpinner().success(MSG.clearDone)
   }
 }

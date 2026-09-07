@@ -1,16 +1,16 @@
 import type { ArgvOptions, PackageJsonLike } from '@/utils'
 import type { LinterKind } from '@/utils/linter'
+import type { TaskSpinner } from '@/utils/logger'
 import type { PackageManager } from '@/utils/package-manager'
 import { existsSync, readFileSync } from 'node:fs'
 import { rm, writeFile as w } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
-import yoctoSpinner from 'yocto-spinner'
 import { CONFIG_COMMITLINT, CONFIG_COMMITLINT_CZGIT } from '@/constants'
 import { MSG, MSG_FOR } from '@/constants/messages'
 import { execCommand, getPackageJSON, isInteractive, isTsProject, writePackageJSON } from '@/utils'
 import { detectLinter, getFixCommand, isLinterInstalled, isLinterKind, renderLintStagedConfig } from '@/utils/linter'
-import { printInfo, printWarn } from '@/utils/logger'
+import { createSpinner, printInfo, printWarn } from '@/utils/logger'
 import { createPackageManager } from '@/utils/package-manager'
 import { promptLinterChoice } from '@/utils/prompt'
 
@@ -310,7 +310,7 @@ async function resolveLinterChoice(options: ArgvOptions): Promise<LinterKind | '
 }
 
 export async function init(options: ArgvOptions) {
-  const spinner = yoctoSpinner()
+  const spinner = createSpinner()
   // 包管理器与 monorepo 判定在这里解析一次，下面每条命令都复用这个结果
   const pm = createPackageManager()
   const linterChoice = await resolveLinterChoice(options)
@@ -346,7 +346,7 @@ interface SetupContext {
   plan: SetupPlan
   survey: ProjectSurvey
   pm: PackageManager
-  spinner: ReturnType<typeof yoctoSpinner>
+  spinner: TaskSpinner
   cwd: string
   linterChoice: LinterKind | 'none'
   journal: FileJournal

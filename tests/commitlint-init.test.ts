@@ -36,6 +36,12 @@ vi.mock('@/utils', () => ({
 vi.mock('@/utils/logger', () => ({
   printInfo: printInfoMock,
   printWarn: printWarnMock,
+  createSpinner: () => ({
+    start: vi.fn(),
+    success: vi.fn(),
+    stop: vi.fn(),
+    run: async (_texts: unknown, fn: () => Promise<unknown>) => fn(),
+  }),
 }))
 
 const detectLinterMock = vi.fn((): LinterKind | undefined => undefined)
