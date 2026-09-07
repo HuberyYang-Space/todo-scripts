@@ -1,0 +1,44 @@
+name: CI
+
+# The release gate only runs on a pushed v* tag, so until now nothing checked a
+# pull request: quality gating lived entirely in the local pre-commit hook, and
+# a commit made with --no-verify showed no problem anywhere on the PR page.
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+# Nothing here writes anything.
+permissions:
+  contents: read
+
+# A second push to the same PR makes the previous run pointless.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Must come before setup-node, otherwise `cache: pnpm` cannot find pnpm.
+      # Which version gets installed is decided by package.json's packageManager.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The same four commands as the release gate in release.yml, spelled out
+      # without `nr` (which needs a global @antfu/ni that CI does not have).
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      # Builds dist/ itself via globalSetup, so no separate build step is needed.
+      - run: pnpm test:e2e
