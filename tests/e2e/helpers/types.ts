@@ -1,9 +1,8 @@
 /**
- * Shape of the package.json fields these tests assert on.
+ * 这些测试所断言的那些 package.json 字段的形状。
  *
- * Declared locally rather than imported from `src/` on purpose: the E2E suite
- * asserts against the CLI's observable output, so it must not share types with the
- * implementation it is checking.
+ * 刻意在本地声明而不是从 `src/` 导入：E2E 断言的是 CLI 对外可观察的输出，
+ * 所以它不能和被它检查的那份实现共用类型。
  */
 export interface PackageJsonLike {
   'name'?: string

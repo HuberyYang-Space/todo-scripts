@@ -1,5 +1,6 @@
 import process from 'node:process'
 import yoctoSpinner from 'yocto-spinner'
+import { MSG, MSG_FOR } from '@/constants/messages'
 import { execCommand, hasDependency, isMonorepo, ScriptError } from '@/utils'
 
 export interface PkgInfo {
@@ -8,54 +9,50 @@ export interface PkgInfo {
 }
 
 export interface PackageManager {
-  /** Package manager name, e.g. pnpm */
+  /** 包管理器名字，例如 pnpm */
   readonly name: string
-  /** Installs whichever of these packages aren't already installed; a no-op if all are */
+  /** 安装这些包里尚未安装的那些；全都装好了就什么也不做 */
   ensureInstalled: (pkgs: string[], options?: { dev?: boolean }) => Promise<void>
-  /** Uninstalls a package */
+  /** 卸载一个包 */
   uninstall: (pkg: string) => Promise<void>
   /**
-   * Runs a project-local bin, e.g. exec('husky init')
+   * 执行项目本地的 bin，例如 exec('husky init')
    *
-   * allowFailure means the caller doesn't care whether this command succeeds
-   * (e.g. trailing code formatting) — on failure it neither throws nor
-   * interrupts the rest of the flow
+   * allowFailure 表示调用方并不在乎这条命令成不成功（比如收尾的代码格式化）——
+   * 失败时既不抛错，也不打断后续流程
    */
   exec: (command: string, options?: { allowFailure?: boolean }) => Promise<void>
-  /** Renders a local-bin command as a string, for writing into shell scripts like husky hooks */
+  /** 把本地 bin 命令渲染成字符串，供写进 husky 钩子这类 shell 脚本 */
   formatExec: (command: string) => string
 }
 
 interface PkgManagerSpec {
-  /** Install subcommand */
+  /** 安装子命令 */
   add: string
-  /** Flag for installing as a dev dependency */
+  /** 装成开发依赖用的参数 */
   devFlag: string
-  /** Uninstall subcommand */
+  /** 卸载子命令 */
   remove: string
-  /** Flag for installing/removing at the monorepo root; left empty for unsupported package managers */
+  /** 在 monorepo 根目录安装/移除用的参数；不支持的包管理器留空 */
   rootFlag?: string
-  /** How each manager spells running a local bin — varies enough that this is just a function */
+  /** 各家执行本地 bin 的写法 —— 差异大到不如直接写成函数 */
   exec: (command: string) => string
 }
 
 /**
- * Every package manager's quirks live in this one table — callers don't need to know any of them
+ * 各个包管理器的差异全收在这一张表里 —— 调用方一个都不需要知道
  *
- * The npm / pnpm / yarn entries have been verified by hand; bun / deno follow their
- * respective official docs but haven't been verified locally (bun's install hangs
- * on a restricted network).
+ * npm / pnpm / yarn 三项已经手工验证过；bun / deno 是照各自官方文档写的，
+ * 但没有在本地验证（受限网络下 bun 的 install 会卡住）。
  */
 const SPECS: Record<string, PkgManagerSpec> = {
   npm: {
     add: 'install',
     devFlag: '--save-dev',
     remove: 'uninstall',
-    // --no stops npx from installing over the network when it can't find the command
-    // locally; the package involved (husky/eslint/commitlint) has already been confirmed
-    // present locally by ensureInstalled/hasDependency by the time this runs, so it
-    // doesn't change normal-path behavior — it just removes npx's fallback network-install
-    // uncertainty
+    // --no 让 npx 在本地找不到命令时不要联网安装；跑到这一步时，涉及的包
+    // （husky/eslint/commitlint）已经被 ensureInstalled/hasDependency 确认在本地了，
+    // 所以它不改变正常路径的行为 —— 只是去掉 npx 那条兜底联网安装带来的不确定性
     exec: command => `npx --no -- ${command}`,
   },
   pnpm: {
@@ -66,7 +63,7 @@ const SPECS: Record<string, PkgManagerSpec> = {
     exec: command => `pnpm exec ${command}`,
   },
   yarn: {
-    // yarn v1 explicitly rejects `yarn install <pkg>`, and its dev-dependency flag is --dev, not --save-dev
+    // yarn v1 明确拒绝 `yarn install <pkg>`，而且它的开发依赖参数是 --dev 而不是 --save-dev
     add: 'add',
     devFlag: '--dev',
     remove: 'remove',
@@ -83,14 +80,14 @@ const SPECS: Record<string, PkgManagerSpec> = {
     add: 'add',
     devFlag: '--dev',
     remove: 'remove',
-    // The npm: prefix attaches directly to the bin name, with no space in between
+    // npm: 前缀直接贴着 bin 名字，中间不能有空格
     exec: command => `deno run -A npm:${command}`,
   },
 }
 
 /**
- * get the current package manager from user agent
- * @returns {PkgInfo} package manager info, include name and version
+ * 从 user agent 里取出当前使用的包管理器
+ * @returns {PkgInfo} 包管理器信息，含名字与版本
  */
 export function getPkgManager(): PkgInfo | undefined {
   const userAgent = process.env.npm_config_user_agent
@@ -107,14 +104,14 @@ export function getPkgManager(): PkgInfo | undefined {
 }
 
 /**
- * Creates the package manager for the current project
+ * 为当前项目创建包管理器
  *
- * Both the package manager kind and the monorepo check resolve just once
- * here; every later call reuses the result instead of hitting the filesystem again
+ * 包管理器种类和 monorepo 判定都只在这里解析一次；后续每次调用复用结果，
+ * 不会再去碰一遍文件系统
  */
 export function createPackageManager(): PackageManager {
   const detected = getPkgManager()?.name ?? 'npm'
-  // Any unrecognized package manager falls back to npm
+  // 认不出来的包管理器一律回退到 npm
   const name = detected in SPECS ? detected : 'npm'
   const spec = SPECS[name]
   const rootFlag = spec.rootFlag && isMonorepo() ? ` ${spec.rootFlag}` : ''
@@ -137,7 +134,7 @@ export function createPackageManager(): PackageManager {
         await execCommand(fullCommand)
       }
       catch {
-        // The caller has declared it doesn't care about the outcome; swallow the error and continue
+        // 调用方已经声明不在乎结果；吞掉错误继续往下走
       }
     },
 
@@ -151,15 +148,15 @@ export function createPackageManager(): PackageManager {
     },
 
     async uninstall(pkg) {
-      const s = yoctoSpinner({ text: 'uninstall running' }).start()
+      const s = yoctoSpinner({ text: MSG.spinnerUninstallStart }).start()
       try {
         await execCommand(`${name} ${spec.remove}${rootFlag} ${pkg}`)
-        s.success(`succeed to uninstall ${pkg}!`)
+        s.success(MSG_FOR.uninstallDone(pkg))
       }
       catch (e) {
-        // Stop the spinner before throwing, otherwise the error message competes with the spinning line
+        // 抛错前先停掉 spinner，否则报错信息会和转圈那行抢地方
         s.stop()
-        throw new ScriptError(`Failed to uninstall ${pkg}.`, { cause: e })
+        throw new ScriptError(MSG_FOR.uninstallFailed(pkg), { cause: e })
       }
     },
   }

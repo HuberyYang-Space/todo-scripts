@@ -5,30 +5,31 @@ import mri from 'mri'
 import colors from 'picocolors'
 import spinner from 'yocto-spinner'
 import { DEFAULT_PKG_NAME } from '@/constants'
+import { MSG, MSG_FOR } from '@/constants/messages'
 import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '@/registry'
 import { banner, getCliVersion, ScriptError } from '@/utils'
 import { createPackageManager } from '@/utils/package-manager'
 
+export { MSG_FOR } from '@/constants/messages'
 /**
- * Re-exported for bin/index.js to consume
+ * 转出给 bin/index.js 使用
  *
- * The bin can't import from '@/utils' directly: tsdown bundles shared code into
- * a hashed chunk (e.g. dist/constants-CaIpLqQE.js) whose filename can change on
- * every build. dist/main.js is the only stable entry point, so it re-exports these.
+ * bin 不能直接从 '@/utils' 或 '@/constants/messages' 导入：tsdown 会把共享代码
+ * 打进一个带 hash 的 chunk，文件名每次构建都可能变。dist/main.js 是唯一稳定的
+ * 入口，所以由它把这些转出去。
  */
 export { printErr, ScriptError } from '@/utils'
 
 const { bold, green } = colors
 
 /**
- * Builds mri's config from the registry
+ * 从 registry 构建 mri 的解析配置
  *
- * Every flag has to be declared up front — one left out of `string` gets coerced
- * to a boolean the moment someone writes a bare `--flag`. Deriving the lists from
- * the registry means declaring a flag on a Script is enough, with no parser config
- * to keep in sync by hand. All subcommands' flags are pooled here because parsing
- * happens before we know which subcommand was asked for. Whether a flag is valid
- * for the command actually invoked is checked separately, in findUnknownFlags.
+ * 每个参数都必须提前声明 —— 漏进 `string` 列表的那个，一旦有人写了个光秃秃的
+ * `--flag` 就会被强转成布尔值。从 registry 派生这些列表，意味着在 Script 上声明
+ * 一个参数就够了，没有第二份解析器配置要手工同步。这里把所有子命令的参数汇到
+ * 一起，是因为解析发生在我们知道用户要跑哪个子命令之前。某个参数对实际调用的
+ * 命令合不合法，由 findUnknownFlags 单独检查。
  */
 function buildParserConfig() {
   const all = [...GLOBAL_FLAGS, ...SCRIPTS.flatMap(script => script.flags ?? [])]
@@ -45,7 +46,7 @@ function buildParserConfig() {
   }
 }
 
-/** Flags the user typed that this particular subcommand does not accept */
+/** 用户敲了、但当前这个子命令并不接受的参数 */
 function findUnknownFlags(options: object, script: Script): string[] {
   const known = collectFlagNames([...GLOBAL_FLAGS, ...(script.flags ?? [])])
   return Object.keys(options).filter(key => key !== '_' && !known.has(key))
@@ -53,7 +54,7 @@ function findUnknownFlags(options: object, script: Script): string[] {
 
 export async function main() {
   banner()
-  // Parses starting from argv[2], so both `hubery --help` and `hubery <script> --help` work
+  // 从 argv[2] 开始解析，这样 `hubery --help` 和 `hubery <script> --help` 都能用
   const options = mri<ArgvOptions>(process.argv.slice(2), buildParserConfig())
 
   const script = findScript(options._[0])
@@ -63,35 +64,35 @@ export async function main() {
     return false
   }
 
-  // Resolved before the missing-script error, so `hubery --help` still works
+  // 在「没指定脚本」的报错之前处理，这样 `hubery --help` 仍然可用
   if (options.help) {
     console.log(script ? renderScriptHelp(script) : renderHelp())
     return false
   }
 
   if (!script)
-    throw new ScriptError('Please use a script.')
+    throw new ScriptError(MSG.noScript)
 
-  // mri silently swallows anything it wasn't told about, so a typo like --czgti
-  // would otherwise run the script with default behaviour and no warning
+  // mri 会静默吞掉任何没告诉过它的参数，所以像 --czgti 这样的拼写错误，
+  // 不管的话就会按默认行为把脚本跑完，一句提示都没有
   const unknown = findUnknownFlags(options, script)
   if (unknown.length) {
     const list = unknown.map(flag => `--${flag}`).join(', ')
-    throw new ScriptError(`Unknown option${unknown.length > 1 ? 's' : ''}: ${list}. Run \`hubery ${script.name} --help\` to see what is supported.`)
+    throw new ScriptError(MSG_FOR.unknownOption(list, script.name))
   }
 
   const { init } = await script.load()
   const startTime = Date.now()
-  console.log(`⚡️ ${bold(green('Process Start'))}\n`)
+  console.log(`⚡️ ${bold(green(MSG.processStart))}\n`)
 
   await init(options)
 
   const endTime = Date.now()
   const elapsedTime = ((endTime - startTime) / 1000).toFixed(1)
-  console.log(`\n✨ ${green(bold('Process Down')) + bold(` in ${elapsedTime}s`)}\n`)
-  // Check whether to uninstall
+  console.log(`\n✨ ${green(bold(MSG_FOR.processDone(elapsedTime)))}\n`)
+  // 看看要不要卸载自己
   if (options.clear) {
     await createPackageManager().uninstall(DEFAULT_PKG_NAME)
-    spinner().success(`clear down!`)
+    spinner().success(MSG.clearDone)
   }
 }

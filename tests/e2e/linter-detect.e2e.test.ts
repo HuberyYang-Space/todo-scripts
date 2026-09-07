@@ -49,9 +49,9 @@ describe('linter 自动探测', () => {
     expect(fixture.read(LINT_STAGED_FILE)).toBe(LINT_STAGED_CONFIG.biome)
   })
 
-  // The two half-satisfied cases below are this suite's biggest gain over the unit
-  // tests: those mock hasDependency() wholesale, so the real two-condition semantics
-  // (declared AND present on disk) can only be verified against a real filesystem.
+  // 下面两个「只满足一半」的用例，是这套 E2E 相对单测最大的增益：单测把 hasDependency()
+  // 整个 mock 掉了，所以那条真正的双条件语义（既声明了、又确实在磁盘上）只能对着
+  // 真实文件系统来验证。
   it('应该在只有 package.json 声明而 node_modules 里没有时判定为未安装', async () => {
     const fixture = await useFixture({ declareOnly: ['eslint'] })
 

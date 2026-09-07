@@ -2,34 +2,32 @@ import type { ArgvOptions } from '@/utils'
 import { green } from 'picocolors'
 
 export interface FlagSpec {
-  /** Long form, exactly as typed minus the leading `--` */
+  /** 长写法，就是敲进去的样子去掉开头的 `--` */
   name: string
   type: 'boolean' | 'string'
-  /** Single-letter form, minus the leading `-` */
+  /** 单字母写法，去掉开头的 `-` */
   alias?: string
-  /** Value placeholder rendered in help, e.g. `<eslint|biome>` */
+  /** 帮助文本里渲染的取值占位符，例如 `<eslint|biome>` */
   placeholder?: string
-  /** One-line description shown in help text */
+  /** 帮助文本里显示的一行说明 */
   summary: string
-  summaryEn: string
 }
 
 export interface Script {
-  /** Subcommand name, exactly what the user types on the command line */
+  /** 子命令名，就是用户在命令行敲的那个词 */
   name: string
-  /** One-line description shown in help text */
+  /** 帮助文本里显示的一行说明 */
   summary: string
-  summaryEn: string
-  /** Flags this subcommand accepts, on top of GLOBAL_FLAGS */
+  /** 这个子命令在 GLOBAL_FLAGS 之外还接受的参数 */
   flags?: FlagSpec[]
-  /** Lazily loads the script implementation */
+  /** 惰性加载脚本实现 */
   load: () => Promise<{ init: (options: ArgvOptions) => Promise<void> }>
 }
 
 /**
- * Flags accepted regardless of which subcommand runs
+ * 不管跑哪个子命令都接受的参数
  *
- * These are handled in main.ts, not inside any script.
+ * 它们在 main.ts 里处理，不在任何脚本内部。
  */
 export const GLOBAL_FLAGS: FlagSpec[] = [
   {
@@ -37,48 +35,41 @@ export const GLOBAL_FLAGS: FlagSpec[] = [
     type: 'boolean',
     alias: 'h',
     summary: '查看帮助',
-    summaryEn: 'show help',
   },
   {
     name: 'version',
     type: 'boolean',
     alias: 'v',
     summary: '查看版本号',
-    summaryEn: 'show version',
   },
   {
     name: 'clear',
     type: 'boolean',
     summary: '清洁执行 - 执行完脚本后卸载模块',
-    summaryEn: 'uninstall the module after running',
   },
 ]
 
 /**
- * The single source of truth for all available subcommands
+ * 所有可用子命令的唯一事实来源
  *
- * Adding a new script only requires appending an entry here — help text renders
- * from it, dispatch looks it up, and the argv parser derives its boolean/string
- * lists from `flags`, so there's no second list to keep in sync by hand
+ * 加一个新脚本只需要在这里追加一项 —— 帮助文本由它渲染、分发靠它查找、
+ * argv 解析器从 `flags` 派生出 boolean/string 列表，没有第二份清单要手工同步
  */
 export const SCRIPTS: Script[] = [
   {
     name: 'commitlint-init',
     summary: '一键生成 commitlint + husky + lint-staged 配置',
-    summaryEn: 'Scaffold commitlint + husky + lint-staged config in one command',
     flags: [
       {
         name: 'czgit',
         type: 'boolean',
         summary: '配置 cz-git',
-        summaryEn: 'enable cz-git',
       },
       {
         name: 'linter',
         type: 'string',
         placeholder: '<eslint|biome|oxlint|none>',
         summary: '指定 lint-staged 检查工具，跳过自动探测和交互询问',
-        summaryEn: 'specify the linter for lint-staged, skipping auto-detect and the prompt',
       },
     ],
     load: () => import('./scripts/commitlint-init'),
@@ -89,7 +80,7 @@ export function findScript(name: string | undefined): Script | undefined {
   return SCRIPTS.find(script => script.name === name)
 }
 
-/** Every spelling a set of flags can be typed as — long forms plus aliases */
+/** 一组参数所有能被敲出来的写法 —— 长写法加别名 */
 export function collectFlagNames(flags: FlagSpec[]): Set<string> {
   const names = new Set<string>()
   for (const flag of flags) {
@@ -100,61 +91,58 @@ export function collectFlagNames(flags: FlagSpec[]): Set<string> {
   return names
 }
 
-/** `-h, --linter=<...>` style label, padded so descriptions line up */
+/** `-h, --linter=<...>` 这种标签，右侧补空格让描述对齐 */
 function renderFlagLines(flags: FlagSpec[]): string {
   return flags
     .map((flag) => {
       const short = flag.alias ? `-${flag.alias}, ` : ''
       const value = flag.placeholder ? `=${flag.placeholder}` : ''
-      return `  ${`${short}--${flag.name}${value}`.padEnd(38)}${flag.summary} / ${flag.summaryEn}`
+      return `  ${`${short}--${flag.name}${value}`.padEnd(38)}${flag.summary}`
     })
     .join('\n')
 }
 
 /**
- * Renders the top-level help text
+ * 渲染顶层帮助文本
  *
- * The available-commands section derives from SCRIPTS, so it can't drift from
- * what's actually supported. Per-command flags deliberately live in
- * `renderScriptHelp` instead — listing every subcommand's flags here would make
- * this unreadable as soon as there is more than one command.
+ * 可用指令一节由 SCRIPTS 派生，不会和实际支持的指令走散。各指令自己的参数
+ * 刻意放在 `renderScriptHelp` 里 —— 一旦指令多于一个，把所有子命令的参数
+ * 都堆在这里会让它没法读。
  */
 export function renderHelp(): string {
   const commands = SCRIPTS
-    .map(({ name, summary, summaryEn }) => `  ${green(name)}\n      ${summary}\n      ${summaryEn}`)
+    .map(({ name, summary }) => `  ${green(name)}\n      ${summary}`)
     .join('\n')
 
   return `\
 一些帮助简化前端配置工程的通用脚本
-Utility scripts to simplify frontend project configuration
 
-用法 / Usage: hubery <script> [参数/options]...
+用法：hubery <script> [参数]...
 
-可用指令 / Available commands:
+可用指令：
 ${commands}
 
-全局参数 / Global options:
+全局参数：
 ${renderFlagLines(GLOBAL_FLAGS)}
 
-查看某个指令自己的参数 / See a command's own options:
+查看某个指令自己的参数：
   hubery <script> --help
 `
 }
 
-/** Renders the help text for one subcommand, including the global flags */
+/** 渲染单个子命令的帮助文本，含全局参数 */
 export function renderScriptHelp(script: Script): string {
   const own = script.flags?.length
-    ? `参数 / Options:\n${renderFlagLines(script.flags)}\n\n`
+    ? `参数：\n${renderFlagLines(script.flags)}\n\n`
     : ''
 
   return `\
 ${green(script.name)}
   ${script.summary}
-  ${script.summaryEn}
 
-用法 / Usage: hubery ${script.name} [参数/options]...
+用法：hubery ${script.name} [参数]...
 
-${own}全局参数 / Global options:
+${own}全局参数：
 ${renderFlagLines(GLOBAL_FLAGS)}
 `
 }

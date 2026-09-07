@@ -5,7 +5,7 @@ import { assertOk, runCli } from './helpers/cli'
 import { LINT_STAGED_FILE, MESSAGE_FOR, MESSAGES, PKG_FIELD } from './helpers/constants'
 import { useFixture } from './helpers/fixture'
 
-/** Resolves a real package-manager binary's directory, for the PATH allowlist */
+/** 解析出某个真实包管理器可执行文件所在目录，供 PATH 白名单使用 */
 async function binDirOf(command: string): Promise<string | undefined> {
   try {
     const { stdout } = await execa('which', [command])
@@ -25,8 +25,8 @@ describe('git 初始化', () => {
 
     expect(fixture.exists('.git')).toBe(true)
     expect(result.stderr).toContain(MESSAGES.gitInitDone)
-    // husky only wires hooksPath once a repo exists, so this doubles as proof the
-    // ordering is right: git init must happen before husky init
+    // husky 只有在仓库已经存在时才会接上 hooksPath，所以这条同时也证明了顺序是对的：
+    // git init 必须发生在 husky init 之前
     expect(fixture.read('.git/config')).toContain('hooksPath = .husky/_')
   })
 
@@ -135,10 +135,9 @@ describe('husky 钩子', () => {
     const result = await runCli(fixture, ['commitlint-init'], { packageManager: 'npm' })
     assertOk(result, fixture)
 
-    // husky 9's init unconditionally overwrites .husky/pre-commit, so the user's line
-    // surviving proves the content was snapshotted BEFORE husky init ran; our command
-    // being there too proves we append rather than just restoring — restoring alone
-    // left lint-staged wired to nothing.
+    // husky 9 的 init 会无条件覆盖 .husky/pre-commit，所以用户那行还在，就证明内容是在
+    // husky init 之前就被快照下来的；我们的命令也在，则证明我们是追加而不只是还原 ——
+    // 只还原的话，lint-staged 就等于接了个寂寞。
     expect(fixture.read('.husky/pre-commit')).toBe('echo mine\nnpx --no -- lint-staged\n')
     expect(result.stdout).toContain(MESSAGE_FOR.hookAppended('.husky/pre-commit'))
   })
@@ -151,9 +150,9 @@ describe('package.json 改写', () => {
     const result = await runCli(fixture, ['commitlint-init'])
     assertOk(result, fixture)
 
-    // husky init writes scripts.prepare into package.json partway through the run;
-    // both surviving proves the manifest is re-read afterwards rather than an
-    // earlier snapshot being written back over husky's change
+    // husky init 会在运行途中往 package.json 里写 scripts.prepare；两者都还在，
+    // 就证明 manifest 是在那之后重新读过的，而不是拿一份更早的快照把 husky 的改动
+    // 覆盖回去了
     const pkg = fixture.readJson<PackageJsonLike>('package.json')
     expect(pkg.scripts?.prepare).toBe('husky')
     expect(pkg.scripts?.commitlint).toBe('commitlint --edit')
@@ -240,10 +239,10 @@ describe('lint-staged 既有配置', () => {
     assertOk(result, fixture)
 
     expect(fixture.exists(LINT_STAGED_FILE)).toBe(false)
-    // The reason has to be asserted too: what separates this case from the one above
-    // is *why* the write was skipped, and both cases shared one prefix-only assertion
+    // 理由也必须断言：这个用例和上面那个的区别就在于写入被跳过的「原因」，
+    // 而两个用例从前共用同一条只匹配前缀的断言
     expect(result.stdout).toContain(MESSAGE_FOR.keptLintStaged(PKG_FIELD.lintStaged))
-    // The legacy field must be left alone, not migrated or deleted
+    // 遗留字段必须原样不动，不迁移也不删除
     expect(fixture.readJson<PackageJsonLike>('package.json')['lint-staged'])
       .toEqual({ '*.ts': 'my-own-linter' })
   })
@@ -277,16 +276,14 @@ describe('整体行为', () => {
     expect(fixture.read('commitlint.config.js')).toBe(afterFirst.commitlint)
     expect(fixture.read('.husky/pre-commit')).toBe(afterFirst.preCommit)
 
-    // Each of the four artefacts has to report being recognised on its own. A bare
-    // `already exists` used to stand in for all of them, and matched whichever one
-    // happened to print first — worse, the hooks never say "already exists" at all
-    // on a re-run (they go down the `unchanged` branch), so the single assertion
-    // that was meant to pin idempotency never covered the hooks it mattered most for.
+    // 四份产物每一份都得各自报告「已被识别」。从前光一句「已存在」被拿来代表所有情况，
+    // 谁先打印就匹配谁 —— 更糟的是，重复运行时钩子根本不会说「已存在」（它们走的是
+    // `unchanged` 分支），于是那条本意用来钉住幂等性的断言，恰恰没有覆盖到它最该覆盖的钩子。
     expect(second.stdout).toContain(MESSAGE_FOR.keptCommitlint('commitlint.config.js'))
     expect(second.stdout).toContain(MESSAGE_FOR.keptLintStaged(LINT_STAGED_FILE))
     expect(second.stdout).toContain(MESSAGE_FOR.hookUnchanged('.husky/pre-commit'))
     expect(second.stdout).toContain(MESSAGE_FOR.hookUnchanged('.husky/commit-msg'))
-    // Re-running must not re-append: the hooks are unchanged, never "appended to"
+    // 重复运行不能重复追加：钩子应该是「未改动」，而不是「被追加」
     expect(second.stdout).not.toContain(MESSAGE_FOR.hookAppended('.husky/pre-commit'))
   })
 })
