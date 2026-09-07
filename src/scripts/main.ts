@@ -1,5 +1,5 @@
 import type { Script } from '@/registry'
-import type { ArgvOptions } from '@/utils'
+import type { ParsedOptions } from '@/types'
 import process from 'node:process'
 import mri from 'mri'
 import colors from 'picocolors'
@@ -56,7 +56,7 @@ function findUnknownFlags(options: object, script: Script): string[] {
 export async function main() {
   banner()
   // 从 argv[2] 开始解析，这样 `hubery --help` 和 `hubery <script> --help` 都能用
-  const options = mri<ArgvOptions>(process.argv.slice(2), buildParserConfig())
+  const options = mri<ParsedOptions>(process.argv.slice(2), buildParserConfig())
 
   const script = findScript(options._[0])
 

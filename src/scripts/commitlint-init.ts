@@ -1,4 +1,5 @@
-import type { ArgvOptions, PackageJsonLike } from '@/utils'
+import type { CommitlintInitOptions } from '@/types'
+import type { PackageJsonLike } from '@/utils'
 import type { LinterKind } from '@/utils/linter'
 import type { TaskSpinner } from '@/utils/logger'
 import type { PackageManager } from '@/utils/package-manager'
@@ -117,7 +118,7 @@ export function findExistingConfig(
  * `husky init` 执行后的副作用，所以只能留在 init() 里。
  */
 export function planSetup(
-  options: ArgvOptions,
+  options: CommitlintInitOptions,
   env: { isTsProject: boolean, pm: PackageManager, linter: LinterKind | 'none' },
 ): SetupPlan {
   const useCZGit = Boolean(options.czgit)
@@ -144,7 +145,7 @@ export function planSetup(
 /**
  * 算出打过补丁的 package.json —— 纯函数，从不修改入参
  */
-export function patchPackageJSON(pkg: PackageJsonLike, options: ArgvOptions): PackageJsonLike {
+export function patchPackageJSON(pkg: PackageJsonLike, options: CommitlintInitOptions): PackageJsonLike {
   const scripts: Record<string, string> = { ...pkg.scripts, commitlint: 'commitlint --edit' }
   const patched: PackageJsonLike = {
     ...pkg,
@@ -283,7 +284,7 @@ export function surveyProject(
   }
 }
 
-async function resolveLinterChoice(options: ArgvOptions): Promise<LinterKind | 'none'> {
+async function resolveLinterChoice(options: CommitlintInitOptions): Promise<LinterKind | 'none'> {
   const flag = typeof options.linter === 'string' ? options.linter.toLowerCase() : undefined
   if (flag === 'none')
     return 'none'
@@ -309,7 +310,7 @@ async function resolveLinterChoice(options: ArgvOptions): Promise<LinterKind | '
   return answer
 }
 
-export async function init(options: ArgvOptions) {
+export async function init(options: CommitlintInitOptions) {
   const spinner = createSpinner()
   // 包管理器与 monorepo 判定在这里解析一次，下面每条命令都复用这个结果
   const pm = createPackageManager()
@@ -342,7 +343,7 @@ export async function init(options: ArgvOptions) {
 }
 
 interface SetupContext {
-  options: ArgvOptions
+  options: CommitlintInitOptions
   plan: SetupPlan
   survey: ProjectSurvey
   pm: PackageManager

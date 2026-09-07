@@ -15,14 +15,6 @@ import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
 import { MSG, MSG_FOR } from '@/constants/messages'
 import { printLine } from '@/utils/logger'
 
-export interface ArgvOptions {
-  clear?: boolean
-  czgit?: boolean
-  help?: boolean
-  version?: boolean
-  linter?: string
-}
-
 export interface PackageJsonLike {
   'scripts'?: Record<string, string>
   'dependencies'?: Record<string, string>
