@@ -8,11 +8,11 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 import { CONFIG_COMMITLINT, CONFIG_COMMITLINT_CZGIT } from '@/constants'
 import { MSG, MSG_FOR } from '@/constants/messages'
-import { execCommand, getPackageJSON, isInteractive, isTsProject, writePackageJSON } from '@/utils'
+import { execCommand, getPackageJSON, isTsProject, writePackageJSON } from '@/utils'
 import { detectLinter, getFixCommand, isLinterInstalled, isLinterKind, renderLintStagedConfig } from '@/utils/linter'
 import { createSpinner, printInfo, printWarn } from '@/utils/logger'
 import { createPackageManager } from '@/utils/package-manager'
-import { promptLinterChoice } from '@/utils/prompt'
+import { canPrompt, promptLinterChoice } from '@/utils/prompt'
 
 interface HookFile {
   path: string
@@ -296,7 +296,7 @@ async function resolveLinterChoice(options: ArgvOptions): Promise<LinterKind | '
   if (detected)
     return detected
 
-  if (!isInteractive()) {
+  if (!canPrompt()) {
     printWarn(MSG.noLinterNonInteractive)
     return 'none'
   }

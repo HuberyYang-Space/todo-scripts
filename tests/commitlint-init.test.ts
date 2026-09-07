@@ -27,7 +27,6 @@ const getPackageJSONMock = vi.fn((): PackageJsonLike => pkgState)
 vi.mock('@/utils', () => ({
   execCommand: execCommandMock,
   getPackageJSON: getPackageJSONMock,
-  isInteractive: isInteractiveMock,
   isTsProject: isTsProjectMock,
   writePackageJSON: writePackageJSONMock,
 }))
@@ -64,6 +63,8 @@ const promptLinterChoiceMock = vi.fn(async (): Promise<LinterKind | 'none' | und
 
 vi.mock('@/utils/prompt', () => ({
   promptLinterChoice: promptLinterChoiceMock,
+  // 交互判定收进 prompt 层之后，脚本问的是 canPrompt —— 沿用同一个 mock
+  canPrompt: isInteractiveMock,
 }))
 
 // 包管理器唯一的接缝：脚本只经由它和 npm/pnpm/yarn 打交道
