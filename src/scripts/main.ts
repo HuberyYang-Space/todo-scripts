@@ -8,6 +8,7 @@ import { DEFAULT_PKG_NAME } from '@/constants'
 import { MSG, MSG_FOR } from '@/constants/messages'
 import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '@/registry'
 import { banner, getCliVersion, ScriptError } from '@/utils'
+import { printLine } from '@/utils/logger'
 import { createPackageManager } from '@/utils/package-manager'
 
 export { MSG_FOR } from '@/constants/messages'
@@ -18,7 +19,8 @@ export { MSG_FOR } from '@/constants/messages'
  * 打进一个带 hash 的 chunk，文件名每次构建都可能变。dist/main.js 是唯一稳定的
  * 入口，所以由它把这些转出去。
  */
-export { printErr, ScriptError } from '@/utils'
+export { ScriptError } from '@/utils'
+export { printErr } from '@/utils/logger'
 
 const { bold, green } = colors
 
@@ -60,13 +62,13 @@ export async function main() {
   const script = findScript(options._[0])
 
   if (options.version) {
-    console.log(getCliVersion())
+    printLine(getCliVersion())
     return false
   }
 
   // 在「没指定脚本」的报错之前处理，这样 `hubery --help` 仍然可用
   if (options.help) {
-    console.log(script ? renderScriptHelp(script) : renderHelp())
+    printLine(script ? renderScriptHelp(script) : renderHelp())
     return false
   }
 
@@ -83,13 +85,13 @@ export async function main() {
 
   const { init } = await script.load()
   const startTime = Date.now()
-  console.log(`⚡️ ${bold(green(MSG.processStart))}\n`)
+  printLine(`⚡️ ${bold(green(MSG.processStart))}\n`)
 
   await init(options)
 
   const endTime = Date.now()
   const elapsedTime = ((endTime - startTime) / 1000).toFixed(1)
-  console.log(`\n✨ ${green(bold(MSG_FOR.processDone(elapsedTime)))}\n`)
+  printLine(`\n✨ ${green(bold(MSG_FOR.processDone(elapsedTime)))}\n`)
   // 看看要不要卸载自己
   if (options.clear) {
     await createPackageManager().uninstall(DEFAULT_PKG_NAME)

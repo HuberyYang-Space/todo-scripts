@@ -29,9 +29,13 @@ vi.mock('@/utils', () => ({
   getPackageJSON: getPackageJSONMock,
   isInteractive: isInteractiveMock,
   isTsProject: isTsProjectMock,
+  writePackageJSON: writePackageJSONMock,
+}))
+
+// 终端输出搬进 logger 之后，这两个从 @/utils 的 mock 里挪到这里
+vi.mock('@/utils/logger', () => ({
   printInfo: printInfoMock,
   printWarn: printWarnMock,
-  writePackageJSON: writePackageJSONMock,
 }))
 
 const detectLinterMock = vi.fn((): LinterKind | undefined => undefined)

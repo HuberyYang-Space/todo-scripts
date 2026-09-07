@@ -13,6 +13,7 @@ import terminalLink from 'terminal-link'
 import { parse as parseYaml } from 'yaml'
 import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
 import { MSG, MSG_FOR } from '@/constants/messages'
+import { printLine } from '@/utils/logger'
 
 export interface ArgvOptions {
   clear?: boolean
@@ -35,7 +36,7 @@ export interface PackageJsonLike {
   [key: string]: any
 }
 
-const { bold, dim, bgYellow, bgRed, bgCyan, isColorSupported } = colors
+const { bold, dim, isColorSupported } = colors
 
 const BRAND_NAME = 'TODO-SCRIPT'
 const BANNER_FONT_NAME = 'todo-script-banner'
@@ -57,30 +58,6 @@ export class ScriptError extends Error {
     super(message, options)
     this.name = 'ScriptError'
   }
-}
-
-export function printWarn(msg: string) {
-  console.log(' ')
-  console.log(`${bgYellow(' WARN ')} ${msg}`)
-  console.log(' ')
-}
-
-/**
- * 中性提示，用于「结果正确」而非「需要担心」的情况
- *
- * 跳过项目已有的配置是这个工具在正常工作，不是警告 —— 用警告黄渲染会让人读成
- * 「哪里出错了」，久而久之就学会了无视真正要紧的那些消息。
- */
-export function printInfo(msg: string) {
-  console.log(' ')
-  console.log(`${bgCyan(' INFO ')} ${msg}`)
-  console.log(' ')
-}
-
-export function printErr(msg: string) {
-  console.log(' ')
-  console.log(`${bgRed(' ERROR ')} ${msg}`)
-  console.log(' ')
 }
 
 /**
@@ -121,17 +98,17 @@ export function banner() {
   const canRenderGradient = isColorSupported && Boolean(process.stdout.isTTY)
   const mode = resolveBannerMode(process.stdout.columns ?? 0, canRenderGradient)
 
-  console.log('')
+  printLine()
   if (mode === 'gradient') {
     if (!isBannerFontRegistered) {
       figlet.parseFont(BANNER_FONT_NAME, bannerFont)
       isBannerFontRegistered = true
     }
     const wordmark = figlet.textSync(BRAND_NAME, { font: BANNER_FONT_NAME })
-    console.log(gradient(BANNER_GRADIENT_COLORS).multiline(wordmark))
+    printLine(gradient(BANNER_GRADIENT_COLORS).multiline(wordmark))
   }
   else {
-    console.log(bold(BRAND_NAME))
+    printLine(bold(BRAND_NAME))
   }
 
   const isSupportLink = terminalLink.isSupported
@@ -141,10 +118,10 @@ export function banner() {
   if (isSupportLink)
     versionText = terminalLink(versionText, `https://www.npmjs.com/package/${DEFAULT_PKG_NAME}`)
 
-  console.log(`${versionText} ${dim('-')} ${authorText}`)
+  printLine(`${versionText} ${dim('-')} ${authorText}`)
   if (!isSupportLink)
-    console.log(dim(`(${REPO_URL})`))
-  console.log('')
+    printLine(dim(`(${REPO_URL})`))
+  printLine()
 }
 
 /**
