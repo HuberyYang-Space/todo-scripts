@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vitest, pnpm, ESLint（antfu config）
 
-**Spec:** `docs/superpowers/specs/2026-08-15-commitlint-init-defaults-fix-design.md`
+**Spec:** [`2026-08-15-commitlint-init-defaults-fix-design.md`](../specs/2026-08-15-commitlint-init-defaults-fix-design.md)
 
 ## Global Constraints
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vitest, pnpm, ESLint（antfu config）, `@clack/prompts`
 
-**Spec:** `docs/superpowers/specs/2026-08-29-linter-aware-lint-staged-design.md`
+**Spec:** [`2026-08-29-linter-aware-lint-staged-design.md`](../specs/2026-08-29-linter-aware-lint-staged-design.md)
 
 ## Global Constraints
 
