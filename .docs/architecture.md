@@ -84,7 +84,7 @@ builds on:
   for the ones embedding a filename or value — written as functions so a call site has to hand
   over the variable, which stops a message and its argument from drifting apart. The point is
   that the planned switch back to English costs one file rather than a sweep.
-  [`bin/index.js`](../bin/index.js) is plain JS with no `@/` alias, so the copy it needs
+  [`bin/index.js`](../bin/index.js) is plain JS with no `~/` alias, so the copy it needs
   (`MSG_FOR.causedBy`) reaches it through `dist/main.js`'s re-export, the same path
   `printErr`/`ScriptError` already take.
 

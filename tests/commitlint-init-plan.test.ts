@@ -1,6 +1,6 @@
-import type { PackageManager } from '@/utils/package-manager'
+import type { PackageManager } from '~/utils/package-manager'
 import { describe, expect, it } from 'vitest'
-import { COMMITLINT_CONFIG_FILES, createFileJournal, detectHuskyV4, findExistingConfig, LINT_STAGED_CONFIG_FILES, patchPackageJSON, planSetup, resolveHookContent, surveyProject } from '@/scripts/commitlint-init'
+import { COMMITLINT_CONFIG_FILES, createFileJournal, detectHuskyV4, findExistingConfig, LINT_STAGED_CONFIG_FILES, patchPackageJSON, planSetup, resolveHookContent, surveyProject } from '~/scripts/commitlint-init'
 
 // 纯函数测试：不需要 mock 文件系统、子进程或 spinner
 const pm = {

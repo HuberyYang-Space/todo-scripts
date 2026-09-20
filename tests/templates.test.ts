@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CONFIG_COMMITLINT,
   CONFIG_COMMITLINT_CZGIT,
-} from '@/templates/commitlint'
+} from '~/templates/commitlint'
 
 /**
  * 一份配置的 `type-enum` 规则里声明的精确类型列表

@@ -2,19 +2,19 @@ import process from 'node:process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const initMock = vi.fn()
-vi.mock('@/scripts/commitlint-init', () => ({ init: initMock }))
+vi.mock('~/scripts/commitlint-init', () => ({ init: initMock }))
 
 const uninstallMock = vi.fn()
 const bannerMock = vi.fn()
-vi.mock('@/utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils')>()
+vi.mock('~/utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('~/utils')>()
   return {
     ...actual,
     banner: bannerMock,
   }
 })
 
-vi.mock('@/utils/package-manager', () => ({
+vi.mock('~/utils/package-manager', () => ({
   createPackageManager: () => ({ uninstall: uninstallMock }),
 }))
 
@@ -22,8 +22,8 @@ vi.mock('yocto-spinner', () => ({
   default: () => ({ success: vi.fn(), start: vi.fn(), stop: vi.fn() }),
 }))
 
-const { ScriptError } = await import('@/utils')
-const { main } = await import('@/scripts/main')
+const { ScriptError } = await import('~/utils')
+const { main } = await import('~/scripts/main')
 
 describe('main', () => {
   const originalArgv = process.argv

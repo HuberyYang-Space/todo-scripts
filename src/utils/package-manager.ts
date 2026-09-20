@@ -1,7 +1,7 @@
 import process from 'node:process'
-import { MSG, MSG_FOR } from '@/constants/messages'
-import { execCommand, hasDependency, isMonorepo, ScriptError } from '@/utils'
-import { createSpinner } from '@/utils/logger'
+import { MSG, MSG_FOR } from '~/constants/messages'
+import { execCommand, hasDependency, isMonorepo, ScriptError } from '~/utils'
+import { createSpinner } from '~/utils/logger'
 
 export interface PkgInfo {
   name: string

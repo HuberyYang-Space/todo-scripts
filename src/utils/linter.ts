@@ -1,4 +1,4 @@
-import { hasDependency } from '@/utils'
+import { hasDependency } from '~/utils'
 
 export type LinterKind = 'eslint' | 'biome' | 'oxlint'
 

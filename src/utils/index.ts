@@ -11,9 +11,9 @@ import gradient from 'gradient-string'
 import colors from 'picocolors'
 import terminalLink from 'terminal-link'
 import { parse as parseYaml } from 'yaml'
-import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
-import { MSG, MSG_FOR } from '@/constants/messages'
-import { printLine } from '@/utils/logger'
+import { DEFAULT_PKG_NAME, REPO_URL } from '~/constants'
+import { MSG, MSG_FOR } from '~/constants/messages'
+import { printLine } from '~/utils/logger'
 
 export interface PackageJsonLike {
   'scripts'?: Record<string, string>

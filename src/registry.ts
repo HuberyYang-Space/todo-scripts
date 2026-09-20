@@ -1,4 +1,4 @@
-import type { ParsedOptions } from '@/types'
+import type { ParsedOptions } from '~/types'
 import { green } from 'picocolors'
 
 export interface FlagSpec {

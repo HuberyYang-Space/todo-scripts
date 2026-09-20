@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import process from 'node:process'
 import { execa } from 'execa'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ScriptError } from '@/utils'
-import { createPackageManager, getPkgManager } from '@/utils/package-manager'
+import { ScriptError } from '~/utils'
+import { createPackageManager, getPkgManager } from '~/utils/package-manager'
 
 vi.mock('execa', async importOriginal => ({
   ...await importOriginal<typeof import('execa')>(),

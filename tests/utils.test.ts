@@ -14,7 +14,7 @@ import {
   resolveBannerMode,
   ScriptError,
   writePackageJSON,
-} from '@/utils'
+} from '~/utils'
 
 // 为失败路径的用例准备：execa 和文件写入要能按需失败，spinner 也不能在测试输出里转圈
 vi.mock('execa', async importOriginal => ({

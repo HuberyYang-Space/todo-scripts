@@ -12,9 +12,9 @@ vi.mock('@clack/prompts', () => ({
 
 // 只借 isInteractive 这一个判定，不把 figlet/gradient 那一整串依赖拉进来
 const isInteractiveMock = vi.fn(() => true)
-vi.mock('@/utils', () => ({ isInteractive: isInteractiveMock }))
+vi.mock('~/utils', () => ({ isInteractive: isInteractiveMock }))
 
-const { canPrompt, promptLinterChoice, promptSelect } = await import('@/utils/prompt')
+const { canPrompt, promptLinterChoice, promptSelect } = await import('~/utils/prompt')
 
 describe('promptLinterChoice', () => {
   it('应该把 select 的结果原样返回', async () => {
