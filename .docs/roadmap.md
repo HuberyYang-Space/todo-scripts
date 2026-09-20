@@ -12,7 +12,7 @@
 
 | | |
 |---|---|
-| **已发布** | v1.4.1（2026-09-07 发布到 npm，`latest: 1.4.1`，tag `v1.4.1` 已在 main 历史里）。⚠️ main 此后又合入两批**尚未发布**的改动：PR #6 协作目录重构、PR #7 别名 `@` → `~`（HB-36） |
+| **已发布** | v1.4.2（2026-09-20 发布到 npm，`latest: 1.4.2`，tag `v1.4.2` 已在 main 历史里，四个引用齐平于 `50608d8`） |
 | **进行中** | 无 |
 | **下一版** | v1.6.0 — 收尾 commitlint-init（HB-12 ~ HB-16，尚未开工）。⚠️ 排期表里的「v1.5.0」是这批地基工作的**代号**，实际以 **1.4.1** 发布，见时间轴 |
 
@@ -118,7 +118,7 @@
 | ❌ | HB-30 | **npm OIDC 发布迁移** | **2026-09-07 放弃**：Hubery 决定发版流程保持现状（本地 `pnpm release` → `bumpp` 推 tag → workflow 生成 Release，`npm publish` 留在本地跑）。代价是 npm 上的包继续没有 provenance 证明，这是**已知且接受**的取舍，不再当作待办。前期查证仍留档备查：5 个前置条件已全部确认（见项目 memory），其中 `repository.url` 修正已随 v1.2.0 完成；剩余 4 项——CI 用 `npm publish` 而非 `pnpm publish`、显式 `pnpm build`、`id-token: write`、publish 幂等保护，外加 npmjs.com 手动登记 trusted publisher。哪天想重开，从这行接着做即可 |
 | ✅ | HB-31 | **审计测试断言宽度** | 2026-09-04 完成。150 处字符串断言过了一遍，修 9 组。最严重的一条比预估更糟：幂等用例的 `toContain('already exists')` 连「钩子未被重复追加」都没覆盖到——重跑时钩子走的是 `unchanged` 分支，打印的是 `already runs our command`，压根不含那个词。E2E 消息表补出 `MESSAGE_FOR` 构造器与 `PKG_FIELD`；约定已写进 CLAUDE.md |
 | ⬜ | HB-34 | **gitee 等中文社区推广** | HB-33 的下一步，本轮刻意不做。涉及：gitee 镜像仓库与同步 CI、README 徽章与双托管说明、czgit 模板补 gitee 风格 `issuePrefixes`（与 HB-16 重叠）、发哪些社区。仓库托管决策是 Hubery 的事，不是代码改动 |
-| ✅ | HB-36 | **路径别名 `@` → `~`，附语法统一核查** | Hubery 指派。别名 3 处配置 + 63 处 import，涉及 18 个文件。同批核查的另两项已确认**零改动**：ES5 遗留为 0；Promise 链式只有 `bin/index.js` 一处可改，`pty.ts` 的两处 Promise 构造器是事件桥接与 sleep，没有 async/await 等价写法。版本归属待定 |
+| ✅ | HB-36 | **路径别名 `@` → `~`，附语法统一核查** | Hubery 指派。别名 3 处配置 + 63 处 import，涉及 18 个文件。同批核查的另两项已确认**零改动**：ES5 遗留为 0；Promise 链式只有 `bin/index.js` 一处可改，`pty.ts` 的两处 Promise 构造器是事件桥接与 sleep，没有 async/await 等价写法。已随 **v1.4.2** 发布 |
 | ❓ | HB-32 | **其余脚手架候选** | `renovate-init` / `tsconfig-init` / `vitest-init` / `pkg-check`（publint + attw 封装）。`pkg-check` 价值最低——那两个工具直接跑就行，包一层没意义 |
 
 ---
@@ -150,7 +150,8 @@
 | 2026-09-07 | v1.5.0 六条全部完成 | HB-17 / HB-19 / HB-18 / HB-20 / HB-21 / HB-35 按计划顺序做完，7 个提交（含 spec 与 plan）。**单测 231 → 241、E2E 57 全绿，`expect` 断言零改动**——只动了 import 路径、`vi.mock` 目标和 execa mock 的返回形状。三处变异实证：① 让 execCommand 无条件给 execa 传第三个参数 → 19 条断言红；② 把卸载文案改成英文 → 中文文案断言红；③ 在 init 里读一个不存在的 flag → tsc 报错（证明类型真收窄了，没退化成 any）。**过程中撞到一条真信号**：`package-manager.test.ts` 里「卸载文案应该是中文」只记录 `yoctoSpinner({ text })` 的构造参数，spinner 封装后同一句文案改走 `start(text)`，断言就红了——用户看到的输出一模一样。按计划的约束没有改断言，改的是 mock 让它同时记录两条路径。另做真实运行核对（全新项目 + 幂等重跑两条路径，INFO/WARN/spinner 输出与重构前一致）|
 | 2026-09-07 | PR #4 合并 | v1.5.0 六条随 [PR #4](https://github.com/HuberyYang-Space/todo-scripts/pull/4) 合入 main（merge commit `a7031bc`，不用 squash/rebase：重写 SHA 会让 tag 落在 main 历史之外）。**新的 `ci.yml` 第一次真实运行就在这个 PR 上，四条门禁全绿**（含 CI 环境跑 E2E），PR 页面从此不再是零检查。`dev` / `origin/dev` 停在 `343ba5e`，`main` / `origin/main` 在 `a7031bc`，两边树内容一致，待发版 |
 | 2026-09-07 | v1.4.1 发布并同步 | 六条地基工作以 **1.4.1**（而非代号里的 1.5.0）发布：严格 semver —— 全是内部重构，使用者拿到的行为没变。npm `latest: 1.4.1`，release workflow 成功，**GitHub Release 正文的分类标题第一次以英文生成**（`💅 Refactors` / `📖 Documentation`），6 条 refactor + 2 条 docs 全部收录——没有 `changelogithub.config.ts` 的话这版会是一句 `No significant changes`。发版提交经 [PR #5](https://github.com/HuberyYang-Space/todo-scripts/pull/5) 用 merge commit 合回 main（`fd5a689`），`git branch -r --contains v1.4.1` 确认 tag 已在 main 历史里。**两个 PR 都是 `ci.yml` 跑绿之后才合的**，PR 页面零检查的日子到此结束 |
-| 2026-09-20 | HB-36 完成 | 路径别名 `@` → `~`：3 处配置（tsconfig `paths`、两份 vitest `alias`）+ 63 处 import，覆盖 18 个文件。`bin/index.js` 的 `main().catch()` 改为 async 函数包 try/catch——**不是 top-level await**，`@antfu/eslint-config` 的 `antfu/no-top-level-await` 禁止它，且它会把 `throw e` 从 unhandled rejection 变成 uncaught exception，语义跟着变。**同批的另两项核查结论是零改动**：ES5 遗留为 0（`var`/`require`/`prototype`/`arguments`/`Object.assign`/`indexOf` 全部零命中）；4 处看似违规的写法（3 处 `function(this)` spinner mock、1 处 CJS fixture 数据、2 处 Promise 构造器）经确认改了会破坏测试意图，已在 [`testing.md`](./testing.md) 记录原因。验证：241 单测 + 57 E2E 全绿，产物大小与改前一致（330.63 kB）；**两个变异实证别名真在生效**——改掉 tsconfig 的 `~/*` 映射 tsc 报 `Cannot find module '~/types'`，改掉 vitest alias 则 11 个 suite 全红，还原后复绿；另跑真实 CLI 四条路径核对退出码与文案 |
+| 2026-09-20 | HB-36 完成 | 路径别名 `@` → `~`：3 处配置（tsconfig `paths`、两份 vitest `alias`）+ 63 处 import，覆盖 18 个文件。`bin/index.js` 的 `main().catch()` 改为 async 函数包 try/catch——**不是 top-level await**，`@antfu/eslint-config` 的 `antfu/no-top-level-await` 禁止它，且它会把 `throw e` 从 unhandled rejection 变成 uncaught exception，语义跟着变。**同批的另两项核查结论是零改动**：ES5 遗留为 0（`var`/`require`/`prototype`/`arguments`/`Object.assign`/`indexOf` 全部零命中）；4 处看似违规的写法（3 处 `function(this)` spinner mock、1 处 CJS fixture 数据、2 处 Promise 构造器）经确认改了会破坏测试意图，已在 [`testing.md`](./testing.md) 记录原因。随 **v1.4.2** 发布。验证：241 单测 + 57 E2E 全绿，产物大小与改前一致（330.63 kB）；**两个变异实证别名真在生效**——改掉 tsconfig 的 `~/*` 映射 tsc 报 `Cannot find module '~/types'`，改掉 vitest alias 则 11 个 suite 全红，还原后复绿；另跑真实 CLI 四条路径核对退出码与文案 |
+| 2026-09-20 | v1.4.2 | ✅ 发布到 npm（`latest: 1.4.2`），tag `v1.4.2` 已在 main 历史里，release workflow 成功（1m5s），GitHub Release 正文完整收录 3 条（1 refactor + 2 docs），分类标题为英文。本版对使用者是**零字节变化**——`dist/` 仍是 330.63 kB，与 1.4.1 逐字节相同；发它是为了让协作目录重构（PR #6）与别名 `@` → `~`（PR #7，HB-36）进入 Release notes。⚠️ **本次发版没走 PR**：在 `main` 上本地 `Merge branch 'dev'` 后直接 `pnpm release` 推送，与 #6 / #7 的做法不同，也没有 `ci.yml` 的四条门禁把关（`release.yml` 里的发布门禁仍然跑过了）。发版后 `dev` 快进到 `50608d8`，四个引用齐平 |
 
 ---
 
