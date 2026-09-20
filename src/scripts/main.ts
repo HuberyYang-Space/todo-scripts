@@ -1,25 +1,25 @@
-import type { Script } from '@/registry'
-import type { ParsedOptions } from '@/types'
+import type { Script } from '~/registry'
+import type { ParsedOptions } from '~/types'
 import process from 'node:process'
 import mri from 'mri'
 import colors from 'picocolors'
-import { DEFAULT_PKG_NAME } from '@/constants'
-import { MSG, MSG_FOR } from '@/constants/messages'
-import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '@/registry'
-import { banner, getCliVersion, ScriptError } from '@/utils'
-import { createSpinner, printLine } from '@/utils/logger'
-import { createPackageManager } from '@/utils/package-manager'
+import { DEFAULT_PKG_NAME } from '~/constants'
+import { MSG, MSG_FOR } from '~/constants/messages'
+import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '~/registry'
+import { banner, getCliVersion, ScriptError } from '~/utils'
+import { createSpinner, printLine } from '~/utils/logger'
+import { createPackageManager } from '~/utils/package-manager'
 
-export { MSG_FOR } from '@/constants/messages'
+export { MSG_FOR } from '~/constants/messages'
 /**
  * 转出给 bin/index.js 使用
  *
- * bin 不能直接从 '@/utils' 或 '@/constants/messages' 导入：tsdown 会把共享代码
+ * bin 不能直接从 '~/utils' 或 '~/constants/messages' 导入：tsdown 会把共享代码
  * 打进一个带 hash 的 chunk，文件名每次构建都可能变。dist/main.js 是唯一稳定的
  * 入口，所以由它把这些转出去。
  */
-export { ScriptError } from '@/utils'
-export { printErr } from '@/utils/logger'
+export { ScriptError } from '~/utils'
+export { printErr } from '~/utils/logger'
 
 const { bold, green } = colors
 

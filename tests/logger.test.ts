@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createSpinner, printErr, printInfo, printLine, printWarn } from '@/utils/logger'
+import { createSpinner, printErr, printInfo, printLine, printWarn } from '~/utils/logger'
 
 // vi.mock 会被提升到文件顶部，所以 stub 必须用 vi.hoisted 一起提上去，
 // 否则工厂执行时它还在暂时性死区里

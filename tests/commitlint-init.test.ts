@@ -1,5 +1,5 @@
-import type { PackageJsonLike } from '@/utils'
-import type { LinterKind } from '@/utils/linter'
+import type { PackageJsonLike } from '~/utils'
+import type { LinterKind } from '~/utils/linter'
 import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -24,7 +24,7 @@ const writePackageJSONMock = vi.fn(async (_data: PackageJsonLike) => {})
 let pkgState: PackageJsonLike
 const getPackageJSONMock = vi.fn((): PackageJsonLike => pkgState)
 
-vi.mock('@/utils', () => ({
+vi.mock('~/utils', () => ({
   execCommand: execCommandMock,
   getPackageJSON: getPackageJSONMock,
   isTsProject: isTsProjectMock,
@@ -32,7 +32,7 @@ vi.mock('@/utils', () => ({
 }))
 
 // 终端输出搬进 logger 之后，这两个从 @/utils 的 mock 里挪到这里
-vi.mock('@/utils/logger', () => ({
+vi.mock('~/utils/logger', () => ({
   printInfo: printInfoMock,
   printWarn: printWarnMock,
   createSpinner: () => ({
@@ -51,7 +51,7 @@ const getFixCommandMock = vi.fn((kind: LinterKind, targets: string[]) => `${kind
 const renderLintStagedConfigMock = vi.fn((choice: LinterKind | 'none') =>
   choice === 'none' ? 'export default {}\n' : `export default { '*': '${choice}-fix-command' }\n`)
 
-vi.mock('@/utils/linter', () => ({
+vi.mock('~/utils/linter', () => ({
   detectLinter: detectLinterMock,
   getFixCommand: getFixCommandMock,
   isLinterInstalled: isLinterInstalledMock,
@@ -61,14 +61,14 @@ vi.mock('@/utils/linter', () => ({
 
 const promptLinterChoiceMock = vi.fn(async (): Promise<LinterKind | 'none' | undefined> => 'none')
 
-vi.mock('@/utils/prompt', () => ({
+vi.mock('~/utils/prompt', () => ({
   promptLinterChoice: promptLinterChoiceMock,
   // 交互判定收进 prompt 层之后，脚本问的是 canPrompt —— 沿用同一个 mock
   canPrompt: isInteractiveMock,
 }))
 
 // 包管理器唯一的接缝：脚本只经由它和 npm/pnpm/yarn 打交道
-vi.mock('@/utils/package-manager', () => ({
+vi.mock('~/utils/package-manager', () => ({
   createPackageManager: () => ({
     name: 'pnpm',
     ensureInstalled: ensureInstalledMock,
@@ -82,7 +82,7 @@ vi.mock('yocto-spinner', () => ({
   default: () => ({ start: vi.fn(), success: vi.fn(), stop: vi.fn() }),
 }))
 
-const { init } = await import('@/scripts/commitlint-init')
+const { init } = await import('~/scripts/commitlint-init')
 
 // resolve() 在 windows 上返回反斜杠路径；断言前统一规范化成 posix 形式，两个平台就都能对上
 function toPosix(p: unknown): string {

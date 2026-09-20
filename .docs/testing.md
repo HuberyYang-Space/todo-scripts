@@ -6,7 +6,7 @@ rules you must follow when adding a test live in [CLAUDE.md](../CLAUDE.md).
 ## Unit tests
 
 [`vitest.config.ts`](../vitest.config.ts), files directly under [`tests/`](../tests), run by
-`pnpm test`. Everything is mocked: `node:fs`, `execa`, `@/utils`, `yocto-spinner`. Nothing
+`pnpm test`. Everything is mocked: `node:fs`, `execa`, `~/utils`, `yocto-spinner`. Nothing
 touches the real filesystem or forks a process.
 
 - `constants.test.ts` / `utils.test.ts` / `linter.test.ts` / `package-manager.test.ts` cover the
@@ -64,6 +64,21 @@ covered neither hook. A fragment match is not an assertion about a branch.
 Interactive prompt cases need a pty, provided by `tests/e2e/helpers/pty-driver.py` (stdlib
 python3, no dependency). They skip with a printed reason where python3 is unavailable or on
 Windows. macOS's `script(1)` is not usable here — it fails when its own stdin is a pipe.
+
+### Deliberately non-idiomatic code, and why
+
+A syntax sweep will flag these four spots. They are intentional; changing them breaks something.
+
+- **`vi.fn(function (this: any) { ... })`** in `utils.test.ts`, `package-manager.test.ts` and
+  `logger.test.ts` — these mock yocto-spinner, whose API is chained (`start().success()`). The mock
+  has to return its own `this`, which an arrow function does not have. Rewriting them as arrows
+  silently breaks the chain.
+- **`module.exports = ...`** in `existing-config.e2e.test.ts` — this is fixture *data*, the content
+  of a `commitlint.config.cjs` written into a temp project. The case exists precisely to cover "the
+  user already has a CJS config", so converting it to ESM deletes what it tests.
+- **`new Promise(...)`** twice in `tests/e2e/helpers/pty.ts` — one bridges a child process's `exit`
+  event into a promise, the other is a sleep. Neither has an async/await equivalent; the Promise
+  constructor is the correct tool for both.
 
 ### Deliberately not covered by E2E
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PKG_NAME, REPO_URL } from '@/constants'
+import { DEFAULT_PKG_NAME, REPO_URL } from '~/constants'
 
 describe('基础常量', () => {
   it('default_PKG_NAME 应该是正确的包名', () => {

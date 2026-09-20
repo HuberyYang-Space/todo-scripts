@@ -5,7 +5,7 @@
     "module": "Preserve",
     "moduleResolution": "bundler",
     "paths": {
-      "@/*": ["./src/*"]
+      "~/*": ["./src/*"]
     },
     "types": ["node"],
     "allowImportingTsExtensions": true,

@@ -1,8 +1,8 @@
 import type { Option } from '@clack/prompts'
-import type { LinterKind } from '@/utils/linter'
+import type { LinterKind } from '~/utils/linter'
 import { cancel, isCancel, select } from '@clack/prompts'
-import { MSG } from '@/constants/messages'
-import { isInteractive } from '@/utils'
+import { MSG } from '~/constants/messages'
+import { isInteractive } from '~/utils'
 
 interface SelectConfig<T> {
   message: string

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hasDependencyMock = vi.fn((_pkg: string) => false)
 
-vi.mock('@/utils', () => ({
+vi.mock('~/utils', () => ({
   hasDependency: hasDependencyMock,
 }))
 
@@ -13,7 +13,7 @@ const {
   isLinterInstalled,
   isLinterKind,
   renderLintStagedConfig,
-} = await import('@/utils/linter')
+} = await import('~/utils/linter')
 
 describe('isLinterKind', () => {
   it('应该认出 eslint/biome/oxlint 这三个合法值', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '@/registry'
+import { collectFlagNames, findScript, GLOBAL_FLAGS, renderHelp, renderScriptHelp, SCRIPTS } from '~/registry'
 
 describe('sCRIPTS 清单', () => {
   it('每个脚本都应该有名字和中英文说明', () => {
