@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript / tsdown / vitest（单测 + E2E 双配置）/ @antfu/eslint-config
 
-**Spec:** `docs/superpowers/specs/2026-09-04-chinese-localization-design.md`
+**Spec:** [`2026-09-04-chinese-localization-design.md`](../specs/2026-09-04-chinese-localization-design.md)
 
 ## Global Constraints
 

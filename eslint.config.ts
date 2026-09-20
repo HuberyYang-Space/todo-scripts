@@ -10,7 +10,7 @@ export default antfu({
     '**/node_modules/**',
     'template-*',
     '**/dist/**',
-    'docs/superpowers/**',
+    '.docs/**',
     '.superpowers/**',
   ],
 })
