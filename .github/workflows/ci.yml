@@ -1,9 +1,16 @@
 name: CI
 
-# The release gate only runs on a pushed v* tag, so until now nothing checked a
-# pull request: quality gating lived entirely in the local pre-commit hook, and
-# a commit made with --no-verify showed no problem anywhere on the PR page.
+# This is where typecheck and tests actually run. The pre-commit hook only does
+# `eslint --fix` on staged files (HB-38), so a commit pushed to dev has had no
+# type check and no test run against it until this workflow does it.
+#
+# Hence the push trigger, not just pull_request: work sits on dev for several
+# commits before a PR exists, and without it that whole stretch is unchecked.
 on:
+  push:
+    branches:
+      - main
+      - dev
   pull_request:
     branches:
       - main

@@ -34,11 +34,15 @@ Release with conventional-commit release notes — that Release body *is* the ch
 
 There are two GitHub Actions workflows plus the local hook.
 
-1. **The local `pre-commit` hook**, on every commit. husky's `pre-commit` runs `lint-staged`,
-   whose config is [`lint-staged.config.mjs`](../lint-staged.config.mjs). `commit-msg` runs
-   `commitlint --edit`.
-2. **`ci.yml`**, on pull requests — the same four checks, so a PR page is never check-free
-   (added in HB-35; first real run was PR #4).
+1. **The local `pre-commit` hook**, on every commit — `eslint --fix` over the staged files, and
+   nothing more. Its config is [`lint-staged.config.mjs`](../lint-staged.config.mjs); `commit-msg`
+   runs `commitlint --edit`. It deliberately does not typecheck or run tests: that cost ~11.6s per
+   commit and the three projects this setup follows (antfu/eslint-config, unocss, vueuse) all lint
+   only. Narrowed in HB-38.
+2. **`ci.yml`**, on pushes to `main`/`dev` and on pull requests — typecheck, lint, unit and E2E.
+   Since HB-38 this is the first place a type error or failing test can surface, which is why it
+   triggers on push and not only on PRs: work sits on `dev` for several commits before a PR exists.
+   (Added in HB-35; first real run was PR #4.)
 3. **The release gate inside `release.yml`**, which repeats the same commands as `build:prod`
    spelled out as `pnpm typecheck` / `pnpm lint` / `pnpm test` / `pnpm test:e2e` rather than
    `pnpm build:prod`, because `build:prod` shells out to `nr` and CI has no global `@antfu/ni`.
