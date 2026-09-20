@@ -13,7 +13,7 @@
 | | |
 |---|---|
 | **已发布** | v1.4.2（2026-09-20 发布到 npm，`latest: 1.4.2`，tag `v1.4.2` 已在 main 历史里，四个引用齐平于 `50608d8`） |
-| **进行中** | 无 |
+| **进行中** | HB-37 / HB-38 — 发版流程去冗余（见候选池） |
 | **下一版** | v1.6.0 — 收尾 commitlint-init（HB-12 ~ HB-16，尚未开工）。⚠️ 排期表里的「v1.5.0」是这批地基工作的**代号**，实际以 **1.4.1** 发布，见时间轴 |
 
 ---
@@ -119,6 +119,9 @@
 | ✅ | HB-31 | **审计测试断言宽度** | 2026-09-04 完成。150 处字符串断言过了一遍，修 9 组。最严重的一条比预估更糟：幂等用例的 `toContain('already exists')` 连「钩子未被重复追加」都没覆盖到——重跑时钩子走的是 `unchanged` 分支，打印的是 `already runs our command`，压根不含那个词。E2E 消息表补出 `MESSAGE_FOR` 构造器与 `PKG_FIELD`；约定已写进 CLAUDE.md |
 | ⬜ | HB-34 | **gitee 等中文社区推广** | HB-33 的下一步，本轮刻意不做。涉及：gitee 镜像仓库与同步 CI、README 徽章与双托管说明、czgit 模板补 gitee 风格 `issuePrefixes`（与 HB-16 重叠）、发哪些社区。仓库托管决策是 Hubery 的事，不是代码改动 |
 | ✅ | HB-36 | **路径别名 `@` → `~`，附语法统一核查** | Hubery 指派。别名 3 处配置 + 63 处 import，涉及 18 个文件。同批核查的另两项已确认**零改动**：ES5 遗留为 0；Promise 链式只有 `bin/index.js` 一处可改，`pty.ts` 的两处 Promise 构造器是事件桥接与 sleep，没有 async/await 等价写法。已随 **v1.4.2** 发布 |
+| 🚧 | HB-37 | **`bumpp --no-verify`** | 发版时 `bumpp` 的 commit 会触发 husky pre-commit，把 `build:prod` 十几秒前刚跑完的 typecheck + lint + test 再跑一遍（lint-staged 的 glob 是 `'*'`，`package.json` 必然匹配）。中间只多了一个版本号字段，不可能由绿转红。bumpp 的 `--verify` 默认 `true`，类型定义原文：`bypass git commit hooks (git commit --no-verify)`。省 11.6s，零风险 |
+| 🚧 | HB-38 | **pre-commit 瘦身 + CI 兜底** | 每次 commit 跑全量 typecheck + lint + test（实测 11.6s）。antfu/eslint-config、unocss、vueuse 三家的 pre-commit **一律只跑 `eslint --fix`**，类型检查与测试交给 CI。改 `lint-staged.config.mjs` 为 `'*': 'eslint --fix'`，**必须同时**给 `ci.yml` 加 push 触发——否则 `dev` 上的提交在开 PR 前没有任何兜底。连带删除 CLAUDE.md 里「零参函数」那条禁令（前提没了）|
+| ❌ | HB-39 | **`bumpp --pr` 发版走 PR** | **2026-09-20 评估后不做。** vueuse 用它让发版提交也过 CI，看似能解决 v1.4.2 直推 main 绕过 PR 规则的问题，但 bumpp 源码里写明：`the tag option is ignored when pr is enabled; the tag is created by CI after the release pull request is merged`。本仓库的 `release.yml` 正是被 tag 触发的，没有「合并后打 tag」的 workflow；且 `release` 脚本里 `npm publish` 紧跟 `bumpp` 执行，PR 未合并就会把版本发到 npm。vueuse 能用是因为它的 publish 在 CI（`publish:ci`）——**要用 `--pr` 必须先重开 [HB-30]**。下次再看到社区在用 `--pr`，先回来读这条 |
 | ❓ | HB-32 | **其余脚手架候选** | `renovate-init` / `tsconfig-init` / `vitest-init` / `pkg-check`（publint + attw 封装）。`pkg-check` 价值最低——那两个工具直接跑就行，包一层没意义 |
 
 ---

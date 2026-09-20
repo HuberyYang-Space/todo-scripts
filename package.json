@@ -44,7 +44,7 @@
     "typecheck": "tsc",
     "lint": "eslint .",
     "lint:fix": "eslint --fix",
-    "release": "nr build:prod && bumpp && npm publish",
+    "release": "nr build:prod && bumpp --no-verify && npm publish",
     "taze": "npx taze major -r",
     "prepare": "husky",
     "commitlint": "commitlint --edit"
